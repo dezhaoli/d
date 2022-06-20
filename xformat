@@ -1,0 +1,88 @@
+#!/usr/local/bin/bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+
+
+: ${XFORMAT_DIE_LOG_FILE}
+: ${XFORMAT_IS_PRINT_TIME:=false}
+
+
+#===========================
+
+: ${xformat_last_seconds:=0}
+
+XFORMAT_VERSION=2.2.0
+XFORMAT_RED='\033[0;31m'
+XFORMAT_CYAN='\033[0;36m'
+XFORMAT_NC='\033[0m'
+
+readonly \
+        XFORMAT_VERSION \
+        XFORMAT_RED \
+        XFORMAT_CYAN \
+        XFORMAT_NC \
+
+#===========================
+
+#@
+function xformat-time {
+  local t=$1    #@
+
+
+  local d=$((t/60/60/24))
+  local h=$((t/60/60%24))
+  local m=$((t/60%60))
+  local s=$((t%60))
+  (( $d > 0 )) && printf '%d days ' $d
+  (( $h > 0 )) && printf '%02d:' $h
+  (( $m > 0 )) && printf '%02d:' $m
+  printf '%02d\n' $s
+}
+
+function _xformat_echo() {
+  if $XFORMAT_IS_PRINT_TIME ; then
+    echo -e  "$(date +%T)" "[elapsed: $(xformat-time $(($SECONDS - $xformat_last_seconds )))]" "$*"
+    xformat_last_seconds=$SECONDS
+  else
+    echo -e "$*"
+  fi
+}
+
+#@ desc='echo a die message to stderr and exit'
+function die() {
+  set +x
+  if [[ -n "$XFORMAT_DIE_LOG_FILE" && -d "$(dirname "$XFORMAT_DIE_LOG_FILE")" ]]; then
+    echo "FATAL: $* " >> "$XFORMAT_DIE_LOG_FILE"
+  fi
+  _xformat_echo "${XFORMAT_RED}FATAL: $* ${XFORMAT_NC}" >&2
+  exit 1
+}
+
+#@ desc='echo a progress message to stderr'
+function progress() {
+    echo "$@" >&2
+}
+
+#@ desc='echo a information message to stderr'
+function info() {
+  local XTRACE
+  shopt -qo xtrace && set +x && XTRACE=true
+  _xformat_echo "${XFORMAT_CYAN}$* ${XFORMAT_NC}" >&2
+  ${XTRACE:-false} && set -x
+  return 0
+}
+
+#@
+function xformat-file-name-size()
+{
+  local name="$1"  #@
+  local size="$2"  #@
+
+  ((size>0)) && printf "%50s: %15s%15s\n" "$name" "$size" "$(numfmt --to=iec --suffix=B --format="%.2f" "$size")"
+  return 0
+}
+
+
