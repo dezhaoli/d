@@ -1,0 +1,228 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   2018-01-01 
+# Please contact dezhaoli if you have any questions.
+###########################################################
+[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
+[[ -n "$XFORMAT_VERSION" ]] || . "$(which xformat)"
+
+
+
+archive()
+{
+	info "Archiving..."
+
+
+	if $is_automatic; then
+		#before the first time call this command, you should open xcode to create a provisioning profile match the $DEVELOPMENT_TEAM.
+		xcodebuild -project "$project"  \
+			-UseModernBuildSystem=1 \
+			-destination generic/platform=iOS \
+			-scheme Unity-iPhone \
+			-configuration Release \
+			-sdk iphoneos \
+			-derivedDataPath "$DERIVED_DATA_DIR" \
+			archive -archivePath "$ARCHIVE_FILE" \
+			ONLY_ACTIVE_ARCH=NO \
+			CODE_SIGN_STYLE="Automatic" \
+			PROVISIONING_STYLE="Automatic" \
+			PROVISIONING_PROFILE="" \
+			DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+			-showBuildTimingSummary \
+			$OTHER_ARGS || die "Failed to archive xcodeproj"
+	else
+		#
+		xcodebuild -project "$project"  \
+			-UseModernBuildSystem=1 \
+			-scheme Unity-iPhone \
+			-configuration Release \
+			-sdk iphoneos \
+			-derivedDataPath "$DERIVED_DATA_DIR" \
+			archive -archivePath "$ARCHIVE_FILE" \
+			CODE_SIGN_STYLE="Manual" \
+			DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+			PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_SPECIFIER" \
+			CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"  \
+			-showBuildTimingSummary \
+			$OTHER_ARGS | die "Failed to archive xcodeproj"
+	fi
+	info "Archive Done"
+}
+export()
+{
+	info "Exporting..."
+
+	#method : app-store, ad-hoc, package, enterprise, development, developer-id, and mac-application. 
+	cat > "$PLIST_FILE" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>$METHOD</string>
+    <key>teamID</key>
+    <string>${DEVELOPMENT_TEAM}</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>${APP_ID}</key>
+        <string>${PROVISIONING_PROFILE}</string>
+    </dict>
+    <key>stripSwiftSymbols</key>
+	<true/>
+    <key>uploadBitcode</key>
+	<false/>
+    <key>uploadSymbols</key>
+	<false/>
+</dict>
+</plist>
+EOF
+
+	xcodebuild -exportArchive \
+		-UseModernBuildSystem=1 \
+		-archivePath "$ARCHIVE_FILE" \
+		-exportPath "$OUTPUT_DIR" \
+		-exportOptionsPlist "$PLIST_FILE" $OTHER_ARGS || die "Failed to export xcarchive"
+
+	info "Export Done"
+}
+_build()
+{
+	info "Building..."
+
+	if $is_automatic; then
+		xcodebuild -project "$project"  \
+			-UseModernBuildSystem=1 \
+			-destination generic/platform=iOS \
+			-scheme Unity-iPhone \
+			-configuration Release \
+			-sdk iphoneos \
+			-derivedDataPath "$DERIVED_DATA_DIR" \
+			_build \
+			ONLY_ACTIVE_ARCH=NO \
+			CODE_SIGN_STYLE="Automatic" \
+			PROVISIONING_STYLE="Automatic" \
+			PROVISIONING_PROFILE="" \
+			DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+			-showBuildTimingSummary \
+			$OTHER_ARGS  || die "Failed to _build xcodeproj"
+	else
+		#
+		xcodebuild -project "$project"  \
+			-UseModernBuildSystem=1 \
+			-scheme Unity-iPhone \
+			-configuration Release \
+			-sdk iphoneos \
+			-derivedDataPath "$DERIVED_DATA_DIR" \
+			_build \
+			CODE_SIGN_STYLE="Manual" \
+			DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+			PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_SPECIFIER" \
+			CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"  \
+			-showBuildTimingSummary \
+			$OTHER_ARGS || die "Failed to _build xcodeproj"
+	fi
+	info "Build Done"
+}
+pack()
+{
+	info "Packing..."
+	rm -fr "$OUTPUT_DIR/Payload"
+	rm -f "$OUTPUT_DIR/Unity-iPhone.ipa"
+	mv "$DERIVED_DATA_DIR/Build/Products/Release-iphoneos" "$OUTPUT_DIR/Payload"
+	mkdir -p "$OUTPUT_DIR/release.xcarchive/dSYMs"
+	mv "$OUTPUT_DIR/Payload"/*.dSYM "$OUTPUT_DIR/release.xcarchive/dSYMs"
+
+
+	(cd "$OUTPUT_DIR" ; zip -r "$OUTPUT_DIR/Unity-iPhone.ipa" Payload > /dev/null)
+	info "Pack Done"
+}
+xpreexport()
+{
+	if [[ -n "$PRE_EXPORT_PROCESS" ]] && command -v "$PRE_EXPORT_PROCESS" &>/dev/null; then
+		info "call PRE_EXPORT_PROCESS..."
+		$PRE_EXPORT_PROCESS
+		info "PRE_EXPORT_PROCESS Done"
+	fi
+}
+
+build()
+{
+	if $is_incremental; then
+		info "Rsyncing..."
+		local inc_project_dir="$TMP_DIR/iOSProj"
+		mkdir -p "$inc_project_dir"
+
+		project="$inc_project_dir/Unity-iPhone.xcodeproj"
+
+		if [[ -e "$project" ]] && ! $is_force; then
+			rsync -n --exclude '.DS_Store'  -c -v -a -O "$PROJECT_DIR/" "$inc_project_dir/" | sed '1d;$d'| sed '$d' > "$TMP_DIR/rsync_list"
+			rsync -v --files-from="$TMP_DIR/rsync_list" "$PROJECT_DIR/" "$inc_project_dir/"
+		else
+			rsync --exclude '.DS_Store' -c -v -a -O "$PROJECT_DIR/" "$inc_project_dir/"
+		fi
+		info "Rsync Done"
+
+		_build
+
+		pack
+	else  #clean build
+		archive
+		xpreexport
+		export
+	fi
+
+}
+
+##@@ kind=label help='if PRE_EXPORT_PROCESS function defined, call it between archive and export'
+##@@ kind=label help='if OTHER_ARGS defined, use it as arguments plus to xcodebuild'
+##@@ kind=label help='for more infomation,please contact dezhaoli.'
+
+#@ 
+function _main(){
+
+	is_incremental=false					#@ -i; --incremental; action=store_true
+	is_automatic=false						#@ -a; --automatic; action=store_true
+	is_force=false							#@ -f; --force; action=store_true
+	is_debug=false							#@ --debug; action=store_true
+	ws=										#@ -ws;
+	cmd=									#@ cmd; choices=('build' 'pack' 'archive' 'export')
+	PROJECT_DIR=							#@ path; filter='-dir'
+	CONFIG_FILE=							#@ config;
+	OUTPUT_DIR=								#@ output; filter='-dir'
+	____ "$@"
+
+
+	$is_debug && set -x
+
+	PROJECT_DIR=$(realpath "${PROJECT_DIR}")
+	CONFIG_FILE=$(realpath "${CONFIG_FILE}")
+	ws=$(eval realpath ${ws:=$PROJECT_DIR/..})
+
+
+	TMP_DIR="$ws/tmp/incremental/xcp"
+
+	DERIVED_DATA_DIR="$TMP_DIR/DerivedData"
+	PLIST_FILE="$OUTPUT_DIR/release.plist"
+	ARCHIVE_FILE="$OUTPUT_DIR/release.xcarchive"
+
+	project="$PROJECT_DIR/Unity-iPhone.xcodeproj"
+	[[ -e "$project" ]] || die "project [$project] : No such file"
+	. "$CONFIG_FILE" || die "CONFIG_FILE [$CONFIG_FILE] : No such file"
+
+
+	# rm -rf "$OUTPUT_DIR"
+	mkdir -p "$OUTPUT_DIR"
+	mkdir -p "$DERIVED_DATA_DIR"
+
+	"$cmd"
+	info "All Done"
+}
+
+
+main "$@"
+
+
+
