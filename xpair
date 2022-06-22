@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bash
 ###########################################################
 # @Author: dezhaoli@tencent.com
-# @Date:   2020-08-19 11:54:47
+# @Date:   
 # Please contact dezhaoli if you have any questions.
 ###########################################################
 [[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
