@@ -4,7 +4,7 @@
 # @Date:   
 # Please contact dezhaoli if you have any questions.
 ###########################################################
-
+[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
 
 : ${XFORMAT_DIE_LOG_FILE}
 : ${XFORMAT_IS_PRINT_TIME:=false}

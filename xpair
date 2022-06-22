@@ -1,0 +1,54 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   2020-08-19 11:54:47
+# Please contact dezhaoli if you have any questions.
+###########################################################
+[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
+
+
+DEFAULT_KEY_VALUE_PAIR_FILE="kv_pair.txt"
+
+_lock()
+{
+  local dbfile=$1
+
+  local lockfile="${dbfile}.lock"
+  trap "rm -f $lockfile" EXIT
+  exec 77> "$lockfile" ||exit 1
+  flock -w 5 77 || exit 1
+}
+
+
+#@
+function set()
+{
+    local key=                                        #@
+    local value=                                      #@
+    local dbfile="$DEFAULT_KEY_VALUE_PAIR_FILE"       #@ -f;--file; help='the file to which save the key-value pair'
+    ____ "$@"
+
+
+    dbfile="$(realpath "$dbfile")"
+
+
+    touch "$dbfile"
+    _lock "$dbfile"
+    sed -i '' "/^[[:space:]]*$key=/d" "$dbfile"
+    echo "$key=$value" >> "$dbfile"
+}
+#@
+function get()
+{
+    local key=                                        #@
+    local dbfile="$DEFAULT_KEY_VALUE_PAIR_FILE"       #@ -f;--file; help='the file to which save the key-value pair'
+    ____ "$@"
+
+    dbfile="$(realpath "$dbfile")"
+
+    touch "$dbfile"
+    _lock "$dbfile"
+    echo $(sed -nE "/^[[:space:]]*$key=(.*)/{s//\1/;p;q;}" "$dbfile" )
+}
+
+main "$@"
