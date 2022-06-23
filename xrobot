@@ -1,0 +1,175 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   2018-01-01 
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+#@ help='Maximum file size limit 2M'
+function image(){
+	local image_file=""					#@ pic_path;
+	____ "$@"
+
+	trap "rm -f $image_file" EXIT
+	DATA=$(base64 -i "$image_file")
+	MD5=$(md5 "$image_file" | awk -F' = ' '{print $2}')
+
+
+	read -d '' CONTENT <<-EOF
+{
+	"msgtype": "image",
+	"image": {
+		"base64": "$DATA",
+		"md5": "$MD5"
+	}
+}
+EOF
+	curl -s $URL -H 'Content-Type: application/json' -d "$CONTENT"
+
+}
+
+#@ help='creat a QR codes'
+function qr(){
+	local title=						#@ -t; --title; help='title will draw to the qr image'
+	local msg=							#@ 
+	____ "$@"
+
+	local image_file=$(mktemp)
+	trap "rm -f $image_file" EXIT
+	qrencode -s 3 -o "$image_file" "$msg"
+
+
+	if [[ -n "$title" ]]; then
+		convert "$image_file" -fill black -font Arial -pointsize 12 -gravity south -annotate 0 "$title" "${image_file}.c"
+		image_file="${image_file}.c"
+	fi
+
+	image "$image_file"
+}
+
+
+#@ help='Maximum msg length limit 5120 byte'
+function text(){
+	local msg=							#@
+	local rtx_names=()					#@ -m; action="append"; help='set rxt name or all'
+	local mobile_nums=()				#@ -M; action="append"; help='set mobile number'
+	local chat_id=						#@ -c; --chat-id;
+	____ "$@"
+	
+
+	if [[ -f "$msg" ]]; then
+		msg="$( cat $msg | tr \` \' )"
+	fi
+	
+	((l=5120-50))
+	((${#msg}>$l)) && msg="${msg::$l}..."
+	msg="${msg//\"/\\\\\"}"
+
+	for i in "${rtx_names[@]}"; do
+		RTXs=$RTXs"\"$i\","
+	done
+
+	for i in "${mobile_nums[@]}"; do
+		MOBILEs=$MOBILEs"\"$i\","
+	done
+
+	if [[ -n "$RTXs" ]]; then
+		RTXs=",\"mentioned_list\":[${RTXs%%,}]"
+	fi
+	if [[ -n "$MOBILEs" ]]; then
+		MOBILEs=",\"mentioned_mobile_list\":[${MOBILEs%%,}]"
+	fi
+	if [[ -n "$chat_id" ]]; then
+		CHATID="\"chatid\": \"$chat_id\","
+	fi
+
+	read -d '' CONTENT <<-EOF
+{
+	$CHATID
+	"msgtype": "text",
+	"text": {
+		"content": "$msg"
+		$RTXs
+		$MOBILEs
+	}
+}
+EOF
+
+	curl -s $URL -H 'Content-Type: application/json' -d "$CONTENT"
+}
+
+#@ help='Maximum msg length limit 4096 byte.'
+function markdown(){
+	local msg=							#@
+	local rtx_names=()					#@ -m; action="append"; help='set rxt name or all'
+	local chat_id=						#@ -c; --chat-id;
+	____ "$@"
+	
+	if [[ -f "$msg" ]]; then
+		msg="$( cat $msg | tr \` \' )"
+	fi
+	
+	((l=4096-300))
+	((${#msg}>$l)) && msg="${msg::$l}..."
+	msg="${msg//\"/\\\\\"}"
+
+	msg_at="
+"
+	for i in "${rtx_names[@]}"; do
+		msg_at="$msg_at <@$i>"
+	done
+
+	if [[ -n "$chat_id" ]]; then
+		CHATID="\"chatid\": \"$chat_id\","
+	fi
+
+	read -d '' CONTENT <<-EOF
+{
+	$CHATID
+	"msgtype": "markdown",
+	"markdown": {
+		"content": "$msg$msg_at"
+	}
+}
+EOF
+
+	curl -s $URL -H 'Content-Type: application/json' -d "$CONTENT"
+}
+
+# Surpoted markdown msg format:
+# 	###### title
+# 	**bold**
+# 	"[google](https://www.google.com/)"
+# 	\`code\`
+# 	> ref text
+# 	<font color="info">green</font> info comment warning
+
+
+##@@ kind='label' help='Send input message to the specified wechat work robot.'
+
+##@@ kind='main-ex'; help='global options:'
+function main-ex()
+{
+	ID="90946002-d8fd-4910-b81f-c29f139be7c2"		#@ --id; help="robot id"
+	is_debug=false									#@ --debug; action='store_true'; help="debug script"
+	____ "$@"
+
+
+
+	if [[ "$(hostname)" =~ 'bkmac' ]] ;then
+		URL="http://in.qyapi.weixin.qq.com/cgi-bin/webhook/send?key=$ID"
+	else
+		URL="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=$ID"
+	fi
+
+	# fix devnet(8006) access denied
+	if [[ "$(hostname)" =~ 'bkmac' ]] ;then
+		export no_proxy="in.qyapi.weixin.qq.com,$no_proxy"
+	fi
+
+}
+
+
+main "$@"
