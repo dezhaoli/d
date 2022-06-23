@@ -8,37 +8,6 @@
 [[ -n "$XFORMAT_VERSION" ]] || . "$(which xformat)"
 
 
-usage()
-{
-	cat << EOF
-Usage: $(basename $0) ws cmd...
-
-	Available cmds are :
-	up
-	revert_modify 			filter [M] files
-	revert_all 				filter [ADM] files
-	revert_external 		filter [X] files, then revert_all and rm_unversioned and up
-	cleanup 
-	rm_unversioned 
-	add 					filter [?] files
-	del 					filter [!] files
-	ci
-	batch_ci@num 			filter [ADM] files
-	ignore@files 			files are seperated by ":", e.g. f1:f2
-	ignore_new_file 		filter [?] files
-	switch
-	switch_ignore_externals
-
-	-credential@username:password 
-	-auth@string			\${svn_auth}
-	-r@revision				\${revision}
-	-url@url 				\${url}
-	-m@commit_message		\${message}
-
-	for more infomation, please contact dezhaoli.
-EOF
-	exit 1
-}
 my_svn(){
 
 	if (($svn_head_num>0));then
@@ -50,22 +19,24 @@ my_svn(){
 	fi
 }
 
-my_ignore(){
-	for f; do
-		d=`dirname "$f"`
-		b=`basename "$f"`
-		ignore=`my_svn propget svn:ignore "$d" 2>/dev/null`
-		if [ -n "$ignore" ]; then
-		    ignore="$ignore
-"
-		fi
-		ignore="$ignore$b"
-		my_svn propset svn:ignore "$ignore" "$d"
-	done
-}
+
+# #@ alia="" help="ignore files. files are seperated by ":", e.g. f1:f2"
+# function ignore(){
+# 	for f; do
+# 		d=`dirname "$f"`
+# 		b=`basename "$f"`
+# 		ignore=`my_svn propget svn:ignore "$d" 2>/dev/null`
+# 		if [ -n "$ignore" ]; then
+# 		    ignore="$ignore
+# "
+# 		fi
+# 		ignore="$ignore$b"
+# 		my_svn propset svn:ignore "$ignore" "$d"
+# 	done
+# }
 
 
-#@ alia="" help=""
+#@ alia="" help="filter [?] files"
 function add()
 {
 	# my_svn st | grep "^?" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r my_svn add
@@ -73,7 +44,7 @@ function add()
 }
 
 
-#@ alia="" help=""
+#@ alia="" help="filter [!] files"
 function del()
 {
 	# my_svn st | grep "^!" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r my_svn del
@@ -92,7 +63,7 @@ function ci()
 	my_svn commit .  -m "$message"
 }
 
-#@ alia="" help=""
+#@ alia="" help="filter [ADM] files"
 function batch_ci()
 {
 	local num=${1:-1000}
@@ -133,13 +104,13 @@ function cleanup()
 	my_svn cleanup . 
 }
 
-#@ alia="" help=""
+#@ alia="" help="filter [M] files"
 function revert_modify()
 {
 	my_svn st | grep "^M" | sed 's/^.\{8\}//' |while read f ;do my_svn revert "$f"@ ; done
 }
 
-#@ alia="" help=""
+#@ alia="" help="filter [ADM] files"
 function revert_all()
 {
 	my_svn revert -R .
@@ -152,7 +123,7 @@ function rm_unversioned()
 }
 
 
-#@ alia="" help=""
+#@ alia="" help="filter [X] files, then revert_all and rm_unversioned and up"
 revert_external(){
 	while read dir
 	do
@@ -164,7 +135,7 @@ revert_external(){
 
 
 
-#@ alia="" help=""
+#@ alia="" help="filter [?] files, and ignore them"
 function ignore_new_file()
 {
 	while read f; do
@@ -200,7 +171,7 @@ function switch_ignore_externals()
 #@ 
 function _main(){
 	svn_auth=									#@ --auth;
-	credential=									#@ --credential;
+	credential=									#@ --credential; help='e.g. username:password'
 	revision=HEAD								#@ -r; --revision;
 	url=										#@ --url;
 	message="auto upload by $(basename $0)"		#@ -m; --message;
@@ -236,15 +207,6 @@ function _main(){
 		xargparse_real_subcmd cmd
 		$cmd
 		(( $? != 0 )) && error $cmd
-
-		# case $cmd in
-
-		# 	ignore@*)
-		# 	files=${cmd#*@}
-		# 	my_ignore ${files//:/ }
-		# 	(( $? != 0 )) && error $cmd ;;
-
-		# esac
 	done
 
 }
