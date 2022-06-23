@@ -1,0 +1,256 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
+[[ -n "$XFORMAT_VERSION" ]] || . "$(which xformat)"
+
+
+usage()
+{
+	cat << EOF
+Usage: $(basename $0) ws cmd...
+
+	Available cmds are :
+	up
+	revert_modify 			filter [M] files
+	revert_all 				filter [ADM] files
+	revert_external 		filter [X] files, then revert_all and rm_unversioned and up
+	cleanup 
+	rm_unversioned 
+	add 					filter [?] files
+	del 					filter [!] files
+	ci
+	batch_ci@num 			filter [ADM] files
+	ignore@files 			files are seperated by ":", e.g. f1:f2
+	ignore_new_file 		filter [?] files
+	switch
+	switch_ignore_externals
+
+	-credential@username:password 
+	-auth@string			\${svn_auth}
+	-r@revision				\${revision}
+	-url@url 				\${url}
+	-m@commit_message		\${message}
+
+	for more infomation, please contact dezhaoli.
+EOF
+	exit 1
+}
+my_svn(){
+
+	if (($svn_head_num>0));then
+		"$SVN" $svn_auth "$@" | head -n $svn_head_num
+		((${PIPESTATUS[0]}==0)) || return 1
+	else
+		"$SVN" $svn_auth "$@"
+		(($?==0)) || return 1
+	fi
+}
+
+my_ignore(){
+	for f; do
+		d=`dirname "$f"`
+		b=`basename "$f"`
+		ignore=`my_svn propget svn:ignore "$d" 2>/dev/null`
+		if [ -n "$ignore" ]; then
+		    ignore="$ignore
+"
+		fi
+		ignore="$ignore$b"
+		my_svn propset svn:ignore "$ignore" "$d"
+	done
+}
+
+
+#@ alia="" help=""
+function add()
+{
+	# my_svn st | grep "^?" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r my_svn add
+	my_svn st | grep "^?" | sed 's/^.\{8\}//' |while read f ;do my_svn add "$f"@ ; done
+}
+
+
+#@ alia="" help=""
+function del()
+{
+	# my_svn st | grep "^!" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r my_svn del
+	my_svn st | grep "^!" | sed 's/^.\{8\}//' |while read f ;do my_svn del "$f"@ ; done
+}
+
+#@ alia="" help=""
+function co()
+{
+	my_svn co "$url" "$ws" -r "$revision"
+}
+
+#@ alia="" help=""
+function ci()
+{
+	my_svn commit .  -m "$message"
+}
+
+#@ alia="" help=""
+function batch_ci()
+{
+	local num=${1:-1000}
+
+	local i=0 j=1
+	logdir=/tmp/log
+	mkdir -p $logdir
+	rm -fr $logdir/*
+	while read f ;do 
+		if [[ -e "$f" ]] ; then  
+			i=$(( $i + 1 ))
+			echo "$f"@ >> $logdir/t$j.txt
+			if (( $i > $num )) ; then
+				my_svn commit  --targets $logdir/t$j.txt --depth empty -m "$message"
+				i=0
+				j=$(( $j + 1 ))
+			fi
+			
+		fi
+	done< <(my_svn st | grep "^[ADM]" | sed 's/^.\{8\}//')
+
+	state=$(my_svn st | grep "^[ADM]")
+	if [[ -n "$state" ]]; then
+		my_svn commit .  -m "$message"
+	fi
+}
+
+
+#@ alia="up" help=""
+function update()
+{
+	my_svn update . --depth infinity --accept theirs-full --force -r "$revision"
+}
+
+#@ alia="" help=""
+function cleanup()
+{
+	my_svn cleanup . 
+}
+
+#@ alia="" help=""
+function revert_modify()
+{
+	my_svn st | grep "^M" | sed 's/^.\{8\}//' |while read f ;do my_svn revert "$f"@ ; done
+}
+
+#@ alia="" help=""
+function revert_all()
+{
+	my_svn revert -R .
+}
+#@ alia="" help=""
+function rm_unversioned()
+{
+	local dir="${1:-.}"							#@
+	my_svn cleanup --remove-unversioned "$dir"
+}
+
+
+#@ alia="" help=""
+revert_external(){
+	while read dir
+	do
+		my_svn revert -R "$dir"
+		rm_unversioned "$dir"
+		my_svn up "$dir"
+	done< <(my_svn st | grep "Performing status" |sed  "s/.*'\([^']*\)'.*/\1/")
+}
+
+
+
+#@ alia="" help=""
+function ignore_new_file()
+{
+	while read f; do
+		d=`dirname "$f"`
+		b=`basename "$f"`
+		ignore=`my_svn propget svn:ignore "$d" 2>/dev/null`
+		if [ -n "$ignore" ]; then
+		    ignore="$ignore
+"
+		fi
+		ignore="$ignore$b"
+		my_svn propset svn:ignore "$ignore" "$d"
+	done< <(my_svn status | grep '^?' | sed 's/^? *//')
+}
+
+
+#@ alia="sw" help=""
+function switch()
+{
+	my_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf"
+}
+
+#@ alia="sw-ig-e" help=""
+function switch_ignore_externals()
+{
+	my_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf" --ignore-externals
+}
+
+# XARGPARES_DEBUG=true
+
+
+
+#@ 
+function _main(){
+	svn_auth=									#@ --auth;
+	credential=									#@ --credential;
+	revision=HEAD								#@ -r; --revision;
+	url=										#@ --url;
+	message="auto upload by $(basename $0)"		#@ -m; --message;
+	svn_head_num=0 								#@ --num;
+
+	ws=""										#@ 
+	cmds=()										#@ nargs='+'; choices=( add del ci co up cleanup sw sw-ig-e revert_modify revert_all rm_unversioned batch_ci ignore_new_file )
+	____ "$@"
+
+	if [[ -n "$credential" ]]; then
+		local username=${credential%:*}
+		local password=${credential#*:}
+		svn_auth="--username $username --password $password"
+	fi
+
+
+	[[ -d "$ws" ]] || die "the workspace [$ws] does not exist!"
+
+	cd "$ws"
+
+
+	echo "$(basename $0) $*"
+
+	SVN=svn
+	if [[ "$OSTYPE" == cygwin ]]; then
+		p=$(whereis svn | sed -E 's#.*(/cygdrive/.*/svn.exe).*#\1#')
+		SVN=$(cygpath -am "$p")
+	fi
+
+
+	for cmd in "${cmds[@]}"
+	do
+		xargparse_real_subcmd cmd
+		$cmd
+		(( $? != 0 )) && error $cmd
+
+		# case $cmd in
+
+		# 	ignore@*)
+		# 	files=${cmd#*@}
+		# 	my_ignore ${files//:/ }
+		# 	(( $? != 0 )) && error $cmd ;;
+
+		# esac
+	done
+
+}
+
+
+
+main "$@"
+
+exit 0
