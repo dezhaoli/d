@@ -4,8 +4,7 @@
 # @Date:   
 # Please contact dezhaoli if you have any questions.
 ###########################################################
-[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
-[[ -n "$XFORMAT_VERSION" ]] || . "$(which xformat)"
+. "$(which d)"
 
 
 my_svn(){

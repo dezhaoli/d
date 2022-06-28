@@ -4,7 +4,7 @@
 # @Date:   
 # Please contact dezhaoli if you have any questions.
 ###########################################################
-[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
+. "$(which d)"
 
 
 DEFAULT_KEY_VALUE_PAIR_FILE="kv_pair.txt"

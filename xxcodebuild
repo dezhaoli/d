@@ -4,8 +4,7 @@
 # @Date:   2018-01-01 
 # Please contact dezhaoli if you have any questions.
 ###########################################################
-[[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
-[[ -n "$XFORMAT_VERSION" ]] || . "$(which xformat)"
+. "$(which d)"
 
 
 
