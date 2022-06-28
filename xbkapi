@@ -1,0 +1,177 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+# https://v3.open.oa.com/developer-center/apps/oadezhaoli/roles
+# http://docs.bkapigw.oa.com/guide/apigateway/use-api/bk-app.html
+# _create_access_token pin+token dezhaoli ******
+# _create_access_token outlook dezhaoli ******
+# _create_access_token cookie dezhaoli 4jpKfRdutY8Jzq7cN3hRljkOta0snzg7HBXKyYfglcY
+# _create_access_token app
+#@
+function create-access-token()
+{
+  mode="$1"
+  shift
+  if [[ "$mode" == "outlook" ]]; then
+    username=$1
+    password=$2
+    args="-d grant_type=authorization_code -d id_provider=tof_ldap -d username=$username -d password=$password"
+  elif [[ "$mode" == "pin+token" ]]; then
+    username=$1
+    password=$2
+    args="-d grant_type=authorization_code -d id_provider=tof_token -d username=$username -d password=$password"
+
+  elif [[ "$mode" == "cookie" ]]; then
+    bk_uid=$1
+    bk_ticket=$2
+    args="-d grant_type=authorization_code -d rtx=$bk_uid -d bk_ticket=$bk_ticket"
+  elif [[ "$mode" == "app" ]]; then
+    args="-d grant_type=client_credentials"
+  else
+    echo 'Failed to create access_token. no mode match' 1>&2
+    exit 1
+  fi
+  
+  api_url='http://apigw.o.oa.com/auth_api/token/'
+$l_is_debug && set -x
+  result=$(curl -s "$api_url" \
+            -d "app_code=$APP_CODE" \
+            -d "app_secret=$APP_SECRET" \
+            -d "env_name=$ENV_TYPE" \
+            $args )
+set +x
+  access_token="$(echo "$result" | jq -r .data.access_token)"
+
+  if [[ -z "$access_token" || "$access_token" == "null" ]]; then
+    echo 'Failed to create access_token' 1>&2
+    exit 1
+  fi
+  echo $access_token
+}
+
+
+#@
+function refresh-access_token()
+{
+
+    api_url='http://apigw.o.oa.com/auth_api/refresh_token/'
+    refresh_token="$1"
+    $l_is_debug && set -x
+    result=$(curl -G -s "$api_url" \
+            -d "app_code=$APP_CODE" \
+            -d "refresh_token=$refresh_token" \
+            -d "env_name=$ENV_TYPE" \
+            -d "grant_type=refresh_token" \
+            $args )
+    set +x
+    access_token="$(echo "$result" | jq -r .data.access_token)"
+
+    if [[ -z "$access_token" || "$access_token" == "null" ]]; then
+    echo 'Failed to refresh access_token' 1>&2
+    exit 1
+    fi
+    echo $access_token
+}
+
+
+
+
+
+#http://docs.bkapigw.oa.com/apigw-api/devops/apigw-api/devops/prod/app_artifactory_list/doc
+#@
+function get-artifactory-list()
+{
+
+    local pipelineId=                 #@
+    local buildId=                    #@
+    ____ "$@"
+  
+    api_url="http://devops.apigw.o.oa.com/${l_env_type}/v2/apigw-user/artifactories/projects/${l_project_id}"
+    api_url="${api_url}/pipelines/${pipelineId}/builds/${buildId}/search"
+    $l_is_debug && set -x
+    result=$(curl -s -i -X GET "" \
+    -H "Accept:application/json" \
+    -H "Content-Type:application/json" \
+    "$api_url?access_token=${l_access_token}" | sed '1,16d')
+    set +x
+
+    echo "$result"
+
+}
+
+#http://docs.bkapigw.oa.com/apigw-api/devops/apigw-api/devops/prod/app_artifactory_thirdPartyDownloadUrl/doc
+#@
+function get-download-url()
+{
+    local path=                       #@
+    ____ "$@"
+
+    api_url="http://devops.apigw.o.oa.com/${l_env_type}/v2/apigw-user/artifactories/projects/${l_project_id}"
+    api_url="${api_url}/thirdPartyDownloadUrl"
+    $l_is_debug && set -x
+    result=$(curl -s -i -X GET "" \
+    -H "Accept:application/json" \
+    -H "Content-Type:application/json" \
+    "$api_url?path=${path}&amp;artifactoryType=${l_artifactory_type}&amp;access_token=${l_access_token}" )
+    set +x
+
+    download_url="$(echo "$result" | sed -n '/{/,$p' | jq -r .data[0])"
+    if [[ -z "$download_url" || "$download_url" == "null" ]]; then
+    echo 'Failed to get download_url' 1>&2
+    exit 1
+    fi
+    echo $download_url
+}
+
+
+#https://bkapigw.woa.com/docs/apigw-api/devops/apigw-api/devops/prod/v3_user_build_variables_value/doc
+
+#@ 
+function get-build-variables-value()
+{
+    local pipelineId=                 #@
+    local buildId=                    #@
+    local keys=                       #@
+    ____ "$@"
+
+    api_url="https://devops.apigw.o.woa.com/${l_env_type}/v3/apigw-user/projects/${l_project_id}"
+    api_url="${api_url}/pipelines/${pipelineId}/builds/${buildId}/variables"
+    $l_is_debug && set -x
+    result=$(curl -s -X POST \
+    -H "X-Bkapi-Authorization: {\"access_token\": \"${l_access_token}\"}" \
+    -H "Content-Type: application/json" \
+    -d "[ 
+            $keys 
+     ]" \
+    -H "Accept:application/json" \
+    "$api_url" )
+    set +x
+
+    echo "$result"
+}
+
+
+##@@ kind='main-ex'; help='global options:'
+function main-ex()
+{
+    l_artifactory_type="PIPELINE"                                     #@ --artifactory-type; choices=( PIPELINE CUSTOM_DIR ); help='set artifactory type'
+    l_env_type="prod"                                                 #@ --env-type; choices=( prod test ); help='set env type'
+    l_project_id="aov"                                                #@ --project-id; help='set project id'
+    l_access_token=                                                   #@ --token; help='set access_token'
+    l_is_debug=false                                                  #@ --debug-mode; action='store_true'; help='open debug mode'
+    ____ "$@"
+
+    APP_CODE=oadezhaoli
+    APP_SECRET=JHtgRaZ5oXFb7DrZqbyT5Y4r5da63mWVleTkFwYcKdHvc7BlHo
+
+}
+
+
+
+main "$@"
