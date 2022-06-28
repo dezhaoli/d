@@ -1,0 +1,94 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+gkv(){
+    xpair "$@" --file "x_record.txt"
+}
+
+# include child files 
+function is_changed()
+{
+    local module=             #@
+    local workspace=          #@
+    ____ "$@"
+
+    local ws="$workspace/$(jq -c -r ".$module.WorkingCopyDir" "$JSON" )"
+    declare -a paths=($(jq -c -r ".$module.SourceFiles[]" "$JSON" ))
+
+    for i in "${paths[@]}"; do
+        local lcr=$(svn info --show-item 'last-changed-revision' "$ws/$i")
+        local rurl=$(svn info --show-item 'relative-url' "$ws/$i" | tr '/' '_' | sed -e 's/[^a-zA-Z_0-9]//g')
+        local local_lcr=$(gkv get "$module.$rurl.last-changed-revision")
+        : ${local_lcr:=0}
+        if ((lcr!=local_lcr)); then
+          echo "true"
+          exit 0
+        fi
+    done
+    echo "false"
+    exit 0
+
+}
+
+#@ help="include child files"
+function mark()
+{
+    local module=             #@
+    local workspace=          #@
+    ____ "$@"
+
+    local ws="$workspace/$(jq -c -r ".$module.WorkingCopyDir" "$JSON" )"
+    declare -a paths=($(jq -c -r ".$module.SourceFiles[]" "$JSON" ))
+
+    for i in "${paths[@]}"; do
+        local lcr=$(svn info --show-item 'last-changed-revision' "$ws/$i")
+        local rurl=$(svn info --show-item 'relative-url' "$ws/$i" | tr '/' '_' | sed -e 's/[^a-zA-Z_0-9]//g' )
+        gkv set "$module.$rurl.last-changed-revision" "$lcr"
+
+        echo "marked: $rurl," "$lcr"
+    done
+    echo "mark finished"
+    exit 0
+
+}
+
+#@ alia='lr'; help='get last-changed-revision from svn'
+function get-last-changed-revision()
+{
+
+    local module=             #@
+    local workspace=          #@
+    ____ "$@"
+
+    local ws="$workspace/$(jq -c -r ".$module.WorkingCopyDir" "$JSON" )"
+    declare -a paths=($(jq -c -r ".$module.SourceFiles[]" "$JSON" ))
+
+    local rurl=$(svn info --show-item 'relative-url' "$ws" | tr '/' '_' | sed -e 's/[^a-zA-Z_0-9]//g')
+    local lcr="$module"
+    for i in "${paths[@]}"; do
+        lcr=$lcr.$(svn info --show-item 'last-changed-revision' "$ws/$i")
+    done
+    echo "$lcr"
+
+}
+##@@ kind='main-ex'; help='global options:'
+function main-ex()
+{
+
+    here=$(realpath "$(dirname "$0")")
+    export PATH="$here:$PATH"
+
+    JSON="$here/xrecord.cfg.json"
+    ls "$JSON" >/dev/null
+
+}
+
+
+
+"_$@"
