@@ -1,0 +1,48 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   2020-08-19 11:54:47
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+
+#@ 
+function _main(){
+    local is_print_output=false     #@ --is-print-output action=store_true help='whether or not print the output log of each subprocess'
+    local cmds=()                   #@ nargs='+'
+    ____ "$@"
+
+
+    local tmp_dir=$(mktemp -d)
+    local pids=()
+    local exit_code=0
+    for i in "${!cmds[@]}"; do
+        { 
+            local f="$tmp_dir/$i"
+            echo "${cmds[$i]} >'$f' "
+            ${cmds[$i]} > $f #2>&1
+            return $?
+        } & pids+=($!)
+    done
+
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+        (($?==0)) || exit_code=1
+    done
+
+    trap "rm -fr $tmp_dir" EXIT
+    if $is_print_output; then
+        for i in "${!cmds[@]}"; do
+            local f="$tmp_dir/$i"
+            cat $f
+        done
+    fi
+
+    return $exit_code
+}
+
+
+main "$@"
+
