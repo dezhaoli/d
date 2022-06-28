@@ -1,0 +1,165 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   2020-08-19 11:54:47
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+
+usage()
+{
+  cat <<EOF
+  include <src> <des> <path> [path...]
+  eg: include "A" "B" "b1/c1" "b2"
+  src          des
+    A/           B/
+    |-b1/        |-b1/ (new)
+    |  |-c1      |  |-c1 -> A/b1/c1
+    |  |-c1.meta |  |-c1.meta -> A/b1/c1.meta
+    |  |-c2/     |  
+    |-b1.meta    |-b1.meta -> A/b1.meta
+    |-b2/        |-b2/ -> A/b2/
+    |-b2.meta    |-b2.meta -> A/b2.meta
+    |-b3/        
+    |-b3.meta 
+
+
+
+  exclude <src> <des> <path> [path...]
+  eg: exclude "A" "B" "b1" "b2"
+  src          des
+    A/           B/
+    |-b1/        |-b1/ (new)
+    |-b2/        |-b2/ (new)
+    |-b3/        |-b3/ -> A/b3
+
+
+
+  exclude_depth <src> <des> <path>
+  eg: exclude_depth "A" "B" "b1/c1"
+  src          des
+    A/           B/
+    |-b1/        |-b1/ (new)
+    |  |-c1/     |  |-c1/ (new)
+    |  |-c2/     |  |-c2/ -> A/b1/c2/
+    |-b2/        |-b2/ -> A/b2/
+
+
+  for more infomation, please contact dezhaoli.
+EOF
+}
+
+
+#@ help='link child files form directory src to directory des.'
+function include()
+{
+    local src=                          #@
+    local des=                          #@
+    local files=()                      #@ nargs='+'
+    ____ "$@"
+
+
+
+    src="$(realpath $src)"
+    des="$(realpath $des)"
+    cd "$des" || exit 1
+
+    local x p_dir
+
+    for i in "${!files[@]}" ; do
+    x=${files[$i]}
+        if [[ ! -e "$x" && -e "$src/$x" ]]; then
+            p_dir=$(dirname "$x")
+            mkdir -p "$p_dir"
+            while [[ "$p_dir" != "." && ! -e "$p_dir.meta" && -e "$src/$p_dir.meta" ]]; do
+                ln -s "$src/$p_dir.meta" "$p_dir.meta"
+                p_dir=$(dirname "$p_dir")
+            done
+
+            ln -s "$src/$x" "$x"
+            if [[ ! -e "$x.meta" && -e "$src/$x.meta" ]]; then
+                ln -s "$src/$x.meta" "$x.meta"
+            fi
+        fi
+    done
+
+}
+
+#@ help='link all child files in directory src to directory des, except that specific by path'
+function exclude()
+{
+    local src=                          #@
+    local des=                          #@
+    local _files=()                     #@ files; nargs='+'
+    ____ "$@"
+
+
+
+    src="$(realpath $src)"
+    des="$(realpath $des)"
+    cd "$des" || exit 1
+
+
+
+    declare -A files
+    for i in "${_files[@]}"; do
+        files+=(["$i"]="true")
+    done
+
+    ls "$src" | while read x; do 
+        if [[ "${files[$x]}" != 'true'  ]];then
+            if [[ ! -e "$x" ]];then
+                ln -s "$src/$x" "$x" 
+            fi
+        fi
+    done
+
+    for x in "${!files[@]}"; do
+        if [[ -d "$src/$x" ]];then
+            mkdir "$des/$x"
+        fi
+    done
+}
+
+
+#@ help='link all child files in directory src to directory des, except that specific by path'
+function exclude_depth()
+{
+    local src=                          #@
+    local des=                          #@
+    local files_str=                    #@ files_str; help='file list string separete by / '
+    ____ "$@"
+
+
+
+    src="$(realpath $src)"
+    des="$(realpath $des)"
+    cd "$des" || exit 1
+
+    local files p
+
+    IFS='/' read -r -a files <<< "$files_str"
+
+    p="."
+    for i in "${files[@]}"; do
+        _exclude "$src/$p" "$des/$p" "$i"
+        p="$p/$i"
+    done
+}
+
+#@ help='rm link symbol in src and link again'
+function rm_ln()
+{
+    local src=                          #@
+    local des=                          #@
+    ____ "$@"
+
+
+    rm -fr "$des"
+    ln -s "$src" "$des"
+}
+
+
+main "$@"
