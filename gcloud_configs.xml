@@ -1,0 +1,136 @@
+{
+  "dezhaoli": {
+    "area": "dezhaoli",
+    "region": "cn",
+    "api": "v1",
+
+    "gameid": "252096820",
+    "gamekey": "4244d262c5951ac78e9f553eb779b5d5",
+
+    "uin": "robot",
+    "host4file": "idcapifile.gcloud.oa.com:8081",
+    "host4common": "idcapi.gcloud.oa.com:8081",
+
+    "accessid": "ckPohW5WSWYNzDVTFQfQZaSoYFQE",
+    "accesskey": "7uS39TvvYoPAuZtroJAEJl2nzLsE",
+    "regionid": "1",
+
+    "dolphin": {
+      "pre_download": "pre-download.2.252096820.cs.gcloud.qq.com",
+      "download": "download.1.252096820.cs.gcloud.qq.com",
+      "android": {
+        "dev_1": "3904"
+      },
+      "ios": {
+        "dev_1": "3905"
+      }
+    }
+  },
+
+
+
+
+
+
+
+
+
+
+  "sg": {
+    "area": "sg",
+    "region": "cn",
+    "api": "v2",
+
+    "gameid": "1212338883",
+    "gamekey": "",
+
+    "uin": "robot",
+    "host4file": "open-file-txygbs.gcloud.qq.com:8928",
+    "host4common": "open-txygbs.gcloud.qq.com:8927",
+
+    "accessid": "nIr8jxYt4LJbrZriSucNmPM4ku4E",
+    "accesskey": "3dB3hgzUu2SfB29ljoTyzHAnqecE",
+    "regionid": "1",
+
+    "dolphin": {
+      "pre_download": "pre-download.2.146264132.cs.gcloud.qq.com",
+      "download": "download.1.146264132.cs.gcloud.qq.com",
+      "android": {
+        "release_1": "2400279"
+      },
+      "ios": {
+        "release_1": "2400280"
+      }
+    }
+  },
+  "tw": {
+    "area": "tw",
+    "region": "cn",
+    "api": "v1",
+
+    "gameid": "1941897853",
+    "gamekey": "8f197e952536f46ca842b66a37fe7658",
+
+    "uin": "robot",
+    "host4file": "open-file-txygbs.gcloud.qq.com:8928",
+    "host4common": "open-txygbs.gcloud.qq.com:8927",
+
+    "accessid": "StQQChUmxKMIqxyEc9anIXdU3n0E",
+    "accesskey": "DOyyEXXAovt3PWBs58XBhGGK1q8E",
+    "regionid": "1",
+
+    "dolphin": {
+      "pre_download": "pre-download.4.1941897853.gcloudgbs.com",
+      "download": "download.3.1941897853.gcloudgbs.com",
+      "android": {
+        "dev_1": "2001097"
+        ,"first_package_update": "2001116"
+      },
+      "ios": {
+        "dev_1": "2001098"
+        ,"first_package_update": "2001117"
+      }
+    },
+
+    "puffer": {
+      "pre_download": "pre-puffer.4.146264132.cs.gcloud.qq.com",
+      "download": "puffer.3.146264132.cs.gcloud.qq.com",
+      "android": {
+        "release": "1080"
+      },
+      "ios": {
+        "release": "1081"
+      }
+    },
+
+    "maple": {
+      "pre-dir": "pre-dir.4.146264132.cs.gcloud.qq.com",
+      "dir": "dir.3.146264132.cs.gcloud.qq.com",
+      "trunk": "DailyIDC",
+      "shenhe": "Shenhe",
+      "banhao": "Banhao",
+      "boss": "Boss",
+      "competition": "Competition",
+      "ce": "CE",
+      "test": "Test",
+      "release_1": "LightTest",
+      "release_2": "MiniTest1",
+      "release_3": "MiniTest2"
+    }
+  },
+
+    "env": {
+      "demo": {
+        "dolphin_official": "dev_1",
+        "dolphin_tmp": "dev_1",
+        "puffer_official": "release",
+        "maple": "trunk"
+      }
+      ,"first_package_update": {
+        "dolphin_official": "first_package_update",
+        "dolphin_tmp": "first_package_update",
+        "puffer_official": "release",
+        "maple": "trunk"
+      }
+    }
+}
