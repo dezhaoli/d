@@ -676,7 +676,7 @@ function main-ex()
     cd "$(dirname "$0")"
 
     MARK="result:"
-    CONFIG_FILE="./gcloud/gcloud_configs.xml"
+    CONFIG_FILE="./gcloud_configs.xml"
 
     : ${config_file:=$CONFIG_FILE}
     : ${area:=$AREA}
@@ -722,7 +722,6 @@ function main-ex()
     read -d '' PYSCRIPT_GC_INIT <<EOF
 import sys, os
 import json
-os.sys.path.insert(0, './gcloud')
 from gcloud_api_$API import GCAPI as gc
 gc.Init("$UIN", "$GAME_ID", "$ACCESS_ID", "$ACCESS_KEY", "$HOST_FOR_COMMON", "$HOST_FOR_FILE","$REGION_ID" $_verbose_openapi)
 EOF
