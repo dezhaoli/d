@@ -668,9 +668,9 @@ EOF
 ##@@ kind='main-ex'; help='global options:'
 function main-ex()
 {
-    local is_debug=false                          #@ --debug; action=store_true
+    local is_debug=false                    #@ --debug; action=store_true
     area=""                                 #@ --area; help='same as export AREA'
-    config_file=                            #@ --config-file;
+    config_file=""                          #@ --config-file;
     ____ "$@"
 
     cd "$(dirname "$0")"
