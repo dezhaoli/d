@@ -1,0 +1,736 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+
+
+versionlatest()
+{
+    local productid=$1
+    local formatstr=$2
+
+    wrap_str formatstr
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetNewestVersion($productid $formatstr, is_print=True)
+
+EOF
+    pythonc "$PYSCRIPT"
+    return $? 
+}
+
+
+
+pythonc()
+{
+    py_script="$1"
+    log=$(mktemp)
+    trap "rm -f $log" EXIT
+    python -c "$py_script" | tee -i $log 1>&2 
+    EXIT_CODE=${PIPESTATUS[0]}
+    cat $log | sed -n "/^$MARK:/{s///;p;}"
+    
+    return $EXIT_CODE 
+}
+
+# #@
+# function get_auto_version()
+# {
+#     local productid=                        #@
+#     local formatstr=                        #@ nargs=?
+#     local is_use_local=false                #@ --local; action=store_true
+#     ____ "$@"
+
+
+
+#     local newest_version=$(versionlatest $productid $formatstr )
+
+#     if $is_use_local; then # for multi pipeline are build simultaneously 
+#         local local_version=$(kv ws_get "$productid.RES_VERSION")
+#         echo "local_version::$local_version" >&2
+#         local max_version=$(max ${local_version:-0.0.0.0} $newest_version)
+#     else    # for build res only
+#         local max_version="$newest_version"
+#     fi
+
+
+#     replace_version "$formatstr" "$max_version"
+
+# }
+
+
+# #@
+# function store_local_version()
+# {
+#     productid="$1"
+#     version="$2"
+
+#     # local local_version=$(kv ws_get "$productid.RES_VERSION")
+#     # echo "local_version::$local_version" >&2
+#     # local max_version=$(max ${local_version:-0.0.0.0} $version)
+#     # kv ws_set "$productid.RES_VERSION" "$max_version"
+#     kv ws_set "$productid.RES_VERSION" "$version"
+# }
+# get_auto_max_version format_version android_productid ios_productid
+#@
+# function get_auto_max_version()
+# {
+#     format_version="$1"
+#     android_productid="$2"
+#     ios_productid="$3"
+
+#     a_newest_version=$(versionlatest $android_productid )
+#     i_newest_version=$(versionlatest $ios_productid )
+#     newest_version=$(max $a_newest_version $i_newest_version)
+
+
+#     local local_version=$(kv ws_get "$android_productid.$ios_productid.RES_VERSION")
+#     echo "local_version::$local_version" >&2
+#     local max_version=$(max ${local_version:-0.0.0.0} $newest_version)
+
+#     replace_version "$format_version" "$max_version"
+# }
+
+# replace_version(){
+#   format_version=$1
+#   replace=$2
+
+#   is_valid_version "$format_version" "$replace" || die "The version format is illegal."
+
+#   IFS='.' read -r -a n <<< "$replace"
+#   IFS='.' read -r -a o <<< "$format_version"
+#   for i in {0..3};do 
+#     x=${o[$i]}
+#     y=${x/X/${n[$i]}}
+#     o[$i]=$((${y}))
+#   done
+#   format_version=$(IFS='.'; echo "${o[*]}")
+#   echo "$format_version"
+# }
+# max()
+# {
+#     is_valid_version "$1" "$2" || die "The version format is illegal."
+
+#     IFS='.' read -r -a a <<< "$1"
+#     IFS='.' read -r -a b <<< "$2"
+#     for i in {0..3};do 
+#         aa=${a[$i]}
+#         bb=${b[$i]}
+#         o[$i]=$((aa>bb ? aa :bb ))
+#     done
+#     IFS='.'; echo "${o[*]}"
+# }
+
+
+wrap_str() { 
+    while (( $# > 0 )); do
+        a=$1
+        shift
+        [[ -n "${!a}" ]] && printf -v "$a" "%s"  ",$a='${!a}'"; 
+    done
+}
+wrap_num() { 
+    while (( $# > 0 )); do
+        a=$1
+        shift
+        [[ -n "${!a}" ]] && printf -v "$a" "%s"  ",$a=${!a}"; 
+    done
+}
+############## all ############## 
+
+#@
+function cfg(){
+    local path=                        #@
+    ____ "$@"
+    jq --raw-output "$path" "$config_file"
+}
+
+
+#@ alia=pl 
+function productidlist()
+{
+    jq ".$area | {area, dolphin} | del(.dolphin.download, .dolphin.\"pre_download\") " "$config_file"
+}
+#@ alia=vl
+function versionlist()
+{
+    local productid=                        #@
+    local pub_type=0                        #@ --pubtype; choices=( 0 2 ); help='0:prepublic, 2:public'
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetVersionList($productid,$pub_type)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+#@ alia=cv
+function cpversion()
+{
+    local gray_rule_id=                     #@ --gray-rule-id
+    local available_type=                   #@ --available-type
+    local diff_app_num=                     #@ --diff-app-num
+
+    local src_productid=                    #@ src_productid;
+    local des_productid=                    #@ des_productid;
+
+    local src_app_version=                  #@ --src-app-version
+    local des_app_version=                  #@ --des-app-version
+    local src_res_version=                  #@ --src-res-version
+    local des_res_version=                  #@ --des-res-version
+
+    local app_version=                      #@ --app-version
+    local res_version=                      #@ --res-version
+    ____ "$@"
+
+
+    [[ -n "$gray_rule_id" ]] && gray_rule_id=",gray_rule_id=$gray_rule_id"
+    [[ -n "$available_type" ]] && available_type=",available_type=$available_type"
+    [[ -n "$diff_app_num" ]] && diff_app_num=",diff_app_num=$diff_app_num"
+
+    : ${src_app_version:=$app_version} ${des_app_version:=$app_version}
+    : ${src_res_version:=$res_version} ${des_res_version:=$res_version}
+
+
+        read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.CopyVersion($src_productid, "$src_app_version", $des_productid, "$des_app_version", src_res_ver="$src_res_version", des_res_ver="$des_res_version" $diff_app_num)
+gc.UpdateVersion($src_productid, "$src_app_version", versiondes="RESERVE" $available_type $gray_rule_id)
+gc.PrePublish($src_productid)
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+}
+
+#@ alia=dv
+function delete_version()
+{
+    local productid=                        #@
+    local version=                          #@ 
+    ____ "$@"
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.DeleteVersion($productid,"$version")
+gc.PrePublish($productid)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+#@ alia=pp
+function prepublish()
+{
+    local productid=                        #@
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.PrePublish($productid)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+#@ alia=p
+function publish()
+{
+    local productid=                        #@
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.Publish($productid)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+#@ 
+function cleanup()
+{
+    local productid=                        #@
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.CleanOldAppVersion($productid)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+
+
+#@ 
+function is_version_exist()
+{
+    local productid=                        #@
+    local kind=                             #@ choices=( both app res )
+    local app_version=                      #@ 
+    local res_version=                      #@ nargs=?
+    local pub_type=0                        #@ --pubtype; choices=( 0 2 ); help='0:prepublic, 2:public'
+    ____ "$@"
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.IsVersionExist($productid, "$kind", "$app_version", "$res_version", $pub_type, is_print=True)
+
+EOF
+    pythonc "$PYSCRIPT"
+    return $? 
+}
+
+
+#@
+function getlog()
+{
+    local productid=                        #@
+    local version=                          #@ 
+    local is_verbose=False                  #@ -v; --is-verbose; action=store_True
+    ____ "$@"
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetLog($productid,"$version",$is_verbose)
+
+EOF
+    if [[ "${3}" == "-v" ]]; then
+        python -c "$PYSCRIPT" | sed "s/u'/'/g" | tr \' \" | jq
+    else
+        python -c "$PYSCRIPT"
+    fi
+    
+    return $? 
+}
+
+#@ alia=v
+function version()
+{
+    ${API}_version "$@"
+}
+
+#@ 
+function newapp()
+{
+    ${API}_newapp "$@"
+}
+#@ 
+function newres()
+{
+    ${API}_newres "$@"
+}
+#@ 
+function upversion()
+{
+    ${API}_upversion "$@"
+}
+############## V1 ############## 
+
+V1()
+{
+
+#@ group=v1
+function v1_version()
+{
+    local productid=                        #@
+    local versionstr=                       #@
+    local pub_type=0                        #@ --pubtype; choices=( 0 2 ); help='0:prepublic, 2:public'
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetVersionInfo($productid, "$versionstr", $pub_type, is_print=True)
+
+EOF
+    pythonc "$PYSCRIPT" | jq .
+    return $? 
+}
+
+
+#@ alia=rv group=v1
+function restore_version()
+{
+    local productid=                        #@
+    local version=                          #@ 
+    local logid=                            #@ nargs=?
+    ____ "$@"
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.RestoreVersion($productid, "$version", "$logid")
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+#@ alia= group=v1
+function v1_newapp()
+{
+    local app_file=                         #@ -f; --file;
+    local app_file_link=                    #@ -l; --file-link;
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local available_type=                   #@ -t; --available-type
+    local gray_rule_id=                     #@ -g; --gray-rule-id
+    local remain_num_available=             #@ -r; --remain-num-available
+    local diff_num="0,0"                    #@ -d; --diff-num
+
+    local productid=                        #@
+    local app_version=                      #@ 
+    ____ "$@"
+
+
+
+    wrap_str customstr versiondes
+    wrap_num available_type gray_rule_id remain_num_available
+
+    [[ -n "$app_file" && ! -f "$app_file" ]] && die "File not found."
+    
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+
+gc.CleanOldAppVersion($productid $remain_num_available)
+diff_versions = gc.GetDiffVersions($productid,$diff_num)
+gc.NewApp($productid,"$app_version",filepath="$app_file",link="$app_file_link" $customstr $versiondes $available_type $gray_rule_id ,diff_list=diff_versions)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+}
+
+#@ alia= group=v1
+function v1_newres()
+{
+    local zip_file=                         #@ -f; --file;
+    local zip_file_link=                    #@ -l; --file-link;
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local available_type=                   #@ -t; --available-type
+    local gray_rule_id=                     #@ -g; --gray-rule-id
+    local base_version=                     #@ -b; --base-version
+
+    local productid=                        #@
+    local app_version=                      #@ 
+    local res_version=                      #@ 
+    ____ "$@"
+
+
+
+    wrap_str customstr versiondes base_version
+    wrap_num available_type gray_rule_id 
+
+    [[ -n "$zip_file" && ! -f "$zip_file" ]] && die "[$zip_file] not found."
+
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.NewRes($productid, "$app_version", "$res_version", filepath="$zip_file",link="$zip_file_link" $base_version $customstr $versiondes $available_type $gray_rule_id)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+}
+#@ alia= group=v1
+function v1_upversion()
+{
+    local productid=                        #@
+    local version=                          #@ 
+
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local available_type=                   #@ -t; --available-type
+    local gray_rule_id=                     #@ -g; --gray-rule-id
+    ____ "$@"
+
+
+
+
+    wrap_str customstr versiondes 
+    wrap_num available_type gray_rule_id 
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.UpdateVersion($productid, "$version" $customstr $versiondes $available_type $gray_rule_id)
+gc.PrePublish($productid)
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+}
+
+#@ group=v1
+function gethistory()
+{
+    local productid=                        #@
+    local version=                          #@ 
+    ____ "$@"
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetUploadHistory($productid, "$version")
+
+EOF
+    python -c "$PYSCRIPT" | jq .
+    return $? 
+}
+
+
+
+} # end of V1
+
+############## V2 ############## 
+V2()
+{
+
+#@ group=v2
+function v2_version()
+{
+    local productid=                        #@
+    local app_version=                      #@
+    local res_version=                      #@
+    local kind=both                         #@ choices=( both app res );
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.PrintVersionInfo($productid, "$app_version", "$res_version", kind="$kind" )
+
+EOF
+    pythonc "$PYSCRIPT" | jq .
+    return $? 
+}
+
+#@ group=v2
+function v2_newapp()
+{
+    local app_file=                         #@ -f; --file;
+    local app_file_link=                    #@ -l; --file-link;
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local remark=                           #@ -m; --remark
+    local category=                         #@ -t; --category
+    local gray_rule_id=                     #@ -g; --gray-rule-id
+    local remain_num_available=             #@ -r; --remain-num-available
+    local diff_num="0,0"                    #@ -d; --diff-num
+
+    local productid=                        #@
+    local app_version=                      #@ 
+    ____ "$@"
+
+
+
+    wrap_str customstr versiondes remark 
+    wrap_num category gray_rule_id remain_num_available
+
+    [[ -n "$app_file" && ! -f "$app_file" ]] && die "File not found."
+    
+    #Prevent errors in multi-line text
+    customstr="${customstr//
+/\\\\n}"
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+
+gc.CleanOldAppVersion($productid $remain_num_available)
+diff_versions = gc.GetDiffVersions($productid,$diff_num)
+gc.NewApp($productid,"$app_version",filepath=\'$app_file\' $app_file_link $customstr $versiondes $remark $category $gray_rule_id ,diff_list=diff_versions)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+
+}
+
+#@ group=v2
+function v2_newres()
+{
+    local zip_file=                         #@ -f; --file;
+    local zip_file_link=                    #@ -l; --file-link;
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local remark=                           #@ -m; --remark
+
+    local productid=                        #@
+    local app_version=                      #@ 
+    local res_version=                      #@ 
+    ____ "$@"
+
+
+
+    wrap_str customstr versiondes remark
+
+    [[ -n "$zip_file" && ! -f "$zip_file" ]] && die "[$zip_file] not found."
+
+    #Prevent errors in multi-line text
+    customstr="${customstr//
+/\\\\n}"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.NewRes($productid, "$app_version", "$res_version", filepath="$zip_file",link="$zip_file_link" $customstr $versiondes $remark )
+
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+}
+#@ group=v2
+function v2_upversion()
+{
+    local productid=                        #@
+    local version=                          #@ 
+    local is_res=false                      #@ --res; action='store_true'
+
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local remark=                           #@ -m; --remark
+    local available_type=                   #@ -t; --available-type
+    local gray_rule_id=                     #@ -g; --gray-rule-id
+    ____ "$@"
+
+
+
+    if $is_res ; then
+        is_app=",is_app=False"
+    else
+        is_app=
+    fi
+    wrap_str customstr versiondes remark
+    wrap_num available_type gray_rule_id 
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.UpdateVersion($productid, "$version" $is_app $customstr $versiondes $remark $available_type $gray_rule_id)
+gc.PrePublish($productid)
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+}
+
+#@ alia= group=v2
+function latest_version_info()
+{
+    local productid=                        #@
+    local kind=res                          #@ choices=( app res )
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetLatestVersionInfo($productid, kind="$kind")
+
+EOF
+    pythonc "$PYSCRIPT" | jq .
+    return $? 
+}
+
+
+v2_getrespkg()
+{
+    productid=${1:?$ERR}
+    res_version=${2:?$ERR}
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+
+result = gc.GetResPkg($productid,"$res_version")
+print "$MARK:%s" % json.dumps(result)
+EOF
+    pythonc "$PYSCRIPT" | jq .
+    return $? 
+}
+
+
+
+} # end of V2
+############## entry ############## 
+
+
+##@@ kind='main-ex'; help='global options:'
+function main-ex()
+{
+    local is_debug=false                          #@ --debug; action=store_true
+    area=""                                 #@ --area; help='same as export AREA'
+    config_file=                            #@ --config-file;
+    ____ "$@"
+
+    cd "$(dirname "$0")"
+
+    MARK="result:"
+    CONFIG_FILE="./gcloud/gcloud_configs.xml"
+
+    : ${config_file:=$CONFIG_FILE}
+    : ${area:=$AREA}
+
+    local _verbose_openapi=False
+    if $is_debug; then
+        _verbose_openapi=True
+        set -x
+    fi
+    wrap_num _verbose_openapi
+
+
+    if [[ " $* " =~ " -h " || " $* " =~ " help " || " $* " =~ " cfg " || "$#" == 0 ]]; then
+        return
+    fi
+
+    [[ -n "$area" ]] || die "\$AREA should be set before $(basename "$0") call"
+    [[ -f "$config_file" ]] || die "Config file [$config_file] not found. "
+
+    read -r -d$'\1'\
+         GAME_ID\
+         UIN\
+         API\
+         HOST_FOR_FILE\
+         HOST_FOR_COMMON\
+         ACCESS_ID\
+         ACCESS_KEY\
+         REGION_ID \
+         < <(jq --raw-output \
+         ".$area.gameid,\
+          .$area.uin,\
+          .$area.api,\
+          .$area.host4file,\
+          .$area.host4common,\
+          .$area.accessid,\
+          .$area.accesskey,\
+          .$area.regionid"\
+            "$config_file")
+
+    : ${GAME_ID:?$ERR} ${UIN:?$ERR} ${HOST_FOR_FILE:?$ERR} ${HOST_FOR_COMMON:?$ERR} ${ACCESS_ID:?$ERR} ${ACCESS_KEY:?$ERR} ${REGION_ID:?$ERR}
+
+
+    read -d '' PYSCRIPT_GC_INIT <<EOF
+import sys, os
+import json
+os.sys.path.insert(0, './gcloud')
+from gcloud_api_$API import GCAPI as gc
+gc.Init("$UIN", "$GAME_ID", "$ACCESS_ID", "$ACCESS_KEY", "$HOST_FOR_COMMON", "$HOST_FOR_FILE","$REGION_ID" $_verbose_openapi)
+EOF
+    
+    ${API^^}
+}
+
+
+
+main "$@"
+
