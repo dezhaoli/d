@@ -17,7 +17,7 @@ import json
 import urlparse
 import urllib
 
-from form_file import FormFile
+from gcloud_form_file import FormFile
 
 
 class ConstError(Exception): pass
