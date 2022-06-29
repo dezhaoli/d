@@ -1,0 +1,235 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+#@
+function cs_error()
+{
+	local log_file=					#@
+	local project_path=				#@
+	local revision=BASE				#@
+	____ "$@"
+
+
+	local i=0
+	local l=10
+	# XXX.cs(2,7): error CS0246: XXXX?
+	while read line 
+	do
+		((i++<l)) || break
+		echo $i. $line
+		f=$(sed -E 's/.*(Assets\/.*\.cs)\(([0-9]+),([0-9]+)\).*/\1/' <<< "$line")
+		r=$(sed -E 's/.*(Assets\/.*\.cs)\(([0-9]+),([0-9]+)\).*/\2/' <<< "$line")
+		c=$(svn blame -v -r $revision "$project_path/$f")
+
+		n=$( ( sed -n "$r"p | awk '{print $2}' ) <<< "$c")
+		[[ -n "$n" ]] || continue
+		echo @$n
+	done < <(grep '): error CS' "$log_file" | awk '!map[$0]++')
+
+	# error CS2001: Source file `XXX.cs' could not be found
+	while read line
+	do
+		((i++<l)) || break
+		echo $i. $line
+		f=$(sed -E 's/.*''`([^'\'']+)'\''.*/\1/' <<< "$line")
+		[[ -n "$f" ]] || continue
+		n=$(svn log -v -r  "{$(date -v-7d +%F)}:$revision" "$project_path/Assets/Scripts/" \
+			| grep  '^r[0-9]\|'"$f" \
+			| pcregrep -M '^r.*\n^ *D.*'\
+			|head -n 1 \
+			|awk '{print $3}')
+		[[ -n "$n" ]] || continue
+		echo @$n
+	done < <(grep '^error CS' "$log_file" | awk '!map[$0]++')
+
+	# error xxx
+	while read line
+	do
+		((i++<l)) || break
+		echo $i. $line
+		
+	done < <(grep 'error ' "$log_file" | grep -v 'because it was imported in uncompressed asset')
+	
+	(( i!=0 )) && return 0 || return 1 
+}
+
+#@
+function unity(){
+	local log_file=					#@
+	local project_path=				#@
+	local revision=BASE				#@
+	____ "$@"
+
+	# sed -n  '/Aborting batchmode due to failure:/ {p;n;p;}' "$log_file" 
+	grep -A2 'Aborting batchmode due to failure:' "$log_file"
+
+	if grep -q "compilationhadfailure: True" "$log_file" || grep -q "result: error!" "$log_file";then
+		log_file_TEMP=${log_file}.tmp
+		if grep -q "Updating .*\.cs - GUID" "$log_file"; then
+			tac "$log_file" | sed -n '1,/Updating .*\.cs - GUID/ p' | tac > $log_file_TEMP
+		else
+			log_file_TEMP=$log_file
+		fi
+
+		if ! cs_error "$log_file_TEMP" "$project_path" "$revision" ; then
+			cs_error "$log_file" "$project_path" "$revision" 
+		fi
+	fi
+
+	#Error: [ExportAssetBundle]
+	sed -n '/^Error: /,/^ *$/ p' "$log_file"
+	sed -n '/^Exception: /,/^ *$/ p' "$log_file"
+
+
+	sed -nE  '/Error building Player/, /UnityEngine/ p' "$log_file"
+	
+	grep 'Cancelling DisplayDialog:' "$log_file"
+	grep 'Please fix' "$log_file"
+	grep 'exception:' "$log_file" 
+	grep 'Build Error' "$log_file" | grep -v 'Terrain preloaded shaders could not be found' |grep -v 'Shader error in'
+	grep 'Found plugins with same names' "$log_file" 
+	grep 'Plugins colliding with each other' "$log_file" 
+
+
+	grep -A 3 'Plugin .* is used from several locations' "$log_file" 
+
+	grep -A 1 'UnityException:' "$log_file"
+	
+
+	grep -B 1 'Receiving .* exception' "$log_file"
+	# for the case unity crash while building ab
+	sed -nE "/PrintStackTraceOSX/,/signal$/ {
+/find symbo/b
+P
+}
+" "$log_file"
+	grep 'abort [0-9]*' "$log_file"
+
+}
+
+#@
+function gradle(){
+	local log_file=					#@
+	local project_path=				#@
+	local revision=BASE				#@
+	____ "$@"
+
+	sed -n '/\* What went wrong:/,/^ *$/ p' "$log_file" 
+
+	if grep -q ":src/main:compileReleaseJavaWithJavac FAILED" "$log_file" ;then
+		i=0
+		l=10
+
+		# NativeBridge.java:445: error:
+		while read line 
+		do
+			((i++<l)) || break
+			echo $i. $line
+			f=$(sed -E 's@.*/(com/.*\.java):([0-9]+): error:.*@\1@' <<< "$line")
+			r=$(sed -E 's@.*/(com/.*\.java):([0-9]+): error:.*@\2@' <<< "$line")
+			c=$(svn blame -v -r $revision "$project_path/Assets/Plugins/Android/src/$f")
+
+			n=$( ( sed -n "$r"p | awk '{print $2}' ) <<< "$c")
+			[[ -n "$n" ]] || continue
+			echo @$n
+		done < <(grep '.java:[0-9]*: error:' "$log_file" | awk '!map[$0]++')
+
+		
+	fi
+}
+
+#@
+function xcode(){
+	local log_file=					#@
+	local project_path=				#@
+	local revision=BASE				#@
+	____ "$@"
+
+	sed -n '/The following build commands failed:/,/^(.* failure)$/ p' "$log_file" 
+	grep 'error:' "$log_file" 
+
+	# /Build/iOSProj/Libraries/ThirdParty/GPUFrameCpature/iOS/MetalHelper.mm:1:10: fatal error: 'UnityTrampolineCompatibility.h' file not found
+	{
+		i=0
+		l=10
+		while read line
+		do
+			((i++<l)) || break
+			echo $i. $line
+			f=$(sed -E 's#.*/Build/iOSProj/Libraries/([^:]+):([0-9]+):.*#\1#' <<< "$line")
+			r=$(sed -E 's#.*/Build/iOSProj/Libraries/([^:]+):([0-9]+):.*#\2#' <<< "$line")
+			c=$(svn blame -v -r $revision "$project_path/Assets/$f")
+	
+			n=$( ( sed -n "$r"p | awk '{print $2}' ) <<< "$c")
+			[[ -n "$n" ]] || continue
+			echo @$n
+		done < <(grep '.*/Build/iOSProj/Libraries/.*: fatal error:' "$log_file" | awk '!map[$0]++')
+	}
+
+	# 
+	if grep -q "clang: error: linker command failed" "$log_file"; then
+		# Undefined symbols for architecture arm64:
+		sed -n '/Undefined symbols for architecture/, /ld/ p' "$log_file"
+
+	fi
+}
+
+#@
+function cpp_error()
+{
+	local log_file=					#@
+	local project_path=				#@
+	local revision=BASE				#@
+	____ "$@"
+
+
+	i=0
+	l=10
+	# XXX/Native/XXX.ipp:307:38: error: XXX
+	while read line 
+	do
+		((i++<l)) || break
+		echo $i. $line
+		f=$(sed -E 's/.*(Native\/.*\.[^:]+):([0-9]+):([0-9]+).*/\1/' <<< "$line")
+		r=$(sed -E 's/.*(Native\/.*\.[^:]+):([0-9]+):([0-9]+).*/\2/' <<< "$line")
+		c=$(svn blame -v -r $revision "$project_path/$f")
+
+		n=$( ( sed -n "$r"p | awk '{print $2}' ) <<< "$c")
+		[[ -n "$n" ]] || continue
+		echo @$n
+	done < <(grep ': error:' "$log_file" | awk '!map[$0]++')
+
+	
+	(( i!=0 )) && return 0 || return 1 
+}
+
+#@
+function native(){
+	local log_file=					#@
+	local project_path=				#@
+	local revision=BASE				#@
+	____ "$@"
+
+	if grep -q ": error:" "$log_file" ;then
+		cpp_error "$log_file" "$project_path" "$revision"
+	else
+		grep 'error:' "$log_file" 
+	fi
+	
+}
+
+
+#@
+function dolphin(){
+	local log_file=				#@
+	____ "$@"
+
+	grep 'GCloudError:\|Exception:' "$log_file" 
+
+}
+
