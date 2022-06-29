@@ -43,7 +43,7 @@ $l_is_debug && set -x
   result=$(curl -s "$api_url" \
             -d "app_code=$APP_CODE" \
             -d "app_secret=$APP_SECRET" \
-            -d "env_name=$ENV_TYPE" \
+            -d "env_name=$l_env_type" \
             $args )
 set +x
   access_token="$(echo "$result" | jq -r .data.access_token)"
@@ -66,7 +66,7 @@ function refresh-access_token()
     result=$(curl -G -s "$api_url" \
             -d "app_code=$APP_CODE" \
             -d "refresh_token=$refresh_token" \
-            -d "env_name=$ENV_TYPE" \
+            -d "env_name=$l_env_type" \
             -d "grant_type=refresh_token" \
             $args )
     set +x
