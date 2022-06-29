@@ -7,3 +7,4 @@
 [[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
 [[ -n "$XFORMAT_VERSION" ]] || . "$(which xformat)"
 
+XFORMAT_IS_PRINT_TIME=true
