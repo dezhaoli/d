@@ -1,7 +1,7 @@
 #!/usr/bin/env -S bash
 ###########################################################
 # @Author: dezhaoli@tencent.com
-# @Date:   2018-01-01 
+# @Date:   
 # Please contact dezhaoli if you have any questions.
 ###########################################################
 . "$(which d)"

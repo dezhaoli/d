@@ -1,12 +1,10 @@
-#encoding:utf-8
+#!/usr/bin/python2
 ###########################################################
 # @Author: dezhaoli@tencent.com
-# @Date:   2020-08-19 11:54:47
+# @Date:   
 # Please contact dezhaoli if you have any questions.
-
-
-# Live GCloud OpenAPI Reference: https://iwiki.woa.com/pages/viewpage.action?pageId=151866342
 ###########################################################
+
 import random
 import time
 import datetime
