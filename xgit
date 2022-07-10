@@ -1,0 +1,141 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+usage()
+{
+	cat << EOF
+Usage: $(basename $0) ws cmd...
+
+	Available cmds are :
+	co@path1,path2,...		sparse checkout files 
+
+	for more infomation, please contact dezhaoli.
+EOF
+	exit 1
+}
+ERR='undefined or null'
+error()
+{
+	echo "an error occurred during execution of cmd: $1." >&2
+	exit 1
+}
+deletelock()
+{
+	ws="${ws:?$ERR_PATH}"
+	rm -f "$ws/.git/index.lock"
+}
+co()
+{
+	: ${ws:?$ERR}
+	: ${URL:?$ERR}
+	: ${BRANCH:?$ERR}
+
+	sparsepaths="$1"
+	
+	deletelock
+
+	# init git workspace
+	if [[ ! -d "$ws/.git" ]]; then
+		mkdir -p "$ws"
+		pushd "$ws"
+		git init 
+		git remote add origin "$URL"
+
+		# init other config
+		# git config user.name $username
+		# git config user.email $username@tencent.com
+		git config core.autocrlf false
+		git config http.sslverify false
+		popd
+	fi
+
+	# init sparse file
+	cd "$ws"
+	echo -e ${sparsepaths//,/"\n"} > ".git/info/sparse-checkout"
+	if [[ -n "$sparsepaths" ]]; then
+		git config core.sparsecheckout true
+	else
+		git config core.sparsecheckout false
+	fi
+
+
+	# fetch
+	git fetch --depth=1 
+
+	# checkout
+	git checkout $BRANCH
+	git branch --set-upstream-to=origin/$BRANCH
+	git reset --hard origin/$BRANCH
+	git pull
+
+}
+
+
+ws="${1}"
+shift 1
+IS_NEED_EXIT=true
+MODE="BRANCH"
+
+for cmd in "$@"
+do
+	case $cmd in
+		-auth@*)
+		GIT_AUTH=${cmd#*@}
+		;;
+
+		-credential@*)
+		svn_auth=${cmd#*@}
+		username=${svn_auth%:*}
+		password=${svn_auth#*:}
+		GIT_AUTH="$username:password"
+		;;
+
+		# -r@*)
+		# REV=${cmd#*@}
+		# ;;
+		
+		-url@*)
+		URL=${cmd#*@}
+		;;
+
+		-branch@*)
+		BRANCH=${cmd#*@}
+		MODE="BRANCH"
+		;;
+
+		# -m@*)
+		# COMMIT_MSG=${cmd#*@}
+		# ;;
+
+		co@*)
+		IS_NEED_EXIT=false
+		;;
+
+	esac
+done
+
+if $IS_NEED_EXIT; then
+	if [ ! -d "$ws" ];then usage;fi
+	cd "$ws"
+fi
+
+for cmd in "$@"
+do
+	case $cmd in
+		co@*)
+		sparsepaths=${cmd#*@}
+		co "$sparsepaths"
+		(( $? != 0 )) && error $cmd ;;
+
+		:) usage;;
+		?) usage;;
+	esac
+done
+
+
+exit 0
