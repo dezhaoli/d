@@ -7,7 +7,7 @@
 . "$(which d)"
 
 
-my_svn(){
+_svn(){
 
 	if (($svn_head_num>0));then
 		"$SVN" $svn_auth "$@" | head -n $svn_head_num
@@ -24,13 +24,13 @@ my_svn(){
 # 	for f; do
 # 		d=`dirname "$f"`
 # 		b=`basename "$f"`
-# 		ignore=`my_svn propget svn:ignore "$d" 2>/dev/null`
+# 		ignore=`_svn propget svn:ignore "$d" 2>/dev/null`
 # 		if [ -n "$ignore" ]; then
 # 		    ignore="$ignore
 # "
 # 		fi
 # 		ignore="$ignore$b"
-# 		my_svn propset svn:ignore "$ignore" "$d"
+# 		_svn propset svn:ignore "$ignore" "$d"
 # 	done
 # }
 
@@ -38,37 +38,38 @@ my_svn(){
 #@ alia="" help="filter [?] files"
 function add()
 {
-	# my_svn st | grep "^?" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r my_svn add
-	my_svn st | grep "^?" | sed 's/^.\{8\}//' |while read f ;do my_svn add "$f"@ ; done
+	# _svn st | grep "^?" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r _svn add
+	_svn st | grep "^?" | sed 's/^.\{8\}//' |while read f ;do _svn add "$f"@ ; done
 }
 
 
 #@ alia="" help="filter [!] files"
 function del()
 {
-	# my_svn st | grep "^!" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r my_svn del
-	my_svn st | grep "^!" | sed 's/^.\{8\}//' |while read f ;do my_svn del "$f"@ ; done
+	# _svn st | grep "^!" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r _svn del
+	_svn st | grep "^!" | sed 's/^.\{8\}//' |while read f ;do _svn del "$f"@ ; done
 }
 
 #@ alia="" help=""
 function co()
 {
-	my_svn co "$url" "$ws" -r "$revision"
+	_svn co "$url" "$ws" -r "$revision"
 }
 
 #@ alia="" help=""
 function ci()
 {
-	my_svn commit .  -m "$message"
+	_svn commit .  -m "$message"
 }
 
 #@ alia="" help="filter [ADM] files"
-function batch_ci()
+function batch-ci()
 {
-	local num=${1:-1000}
+	local num=1000		#@ 
+	____ "$@"
 
 	local i=0 j=1
-	logdir=/tmp/log
+	logdir=/tmp/xsvn_commit_log
 	mkdir -p $logdir
 	rm -fr $logdir/*
 	while read f ;do 
@@ -76,17 +77,17 @@ function batch_ci()
 			i=$(( $i + 1 ))
 			echo "$f"@ >> $logdir/t$j.txt
 			if (( $i > $num )) ; then
-				my_svn commit  --targets $logdir/t$j.txt --depth empty -m "$message"
+				_svn commit  --targets $logdir/t$j.txt --depth empty -m "$message"
 				i=0
 				j=$(( $j + 1 ))
 			fi
 			
 		fi
-	done< <(my_svn st | grep "^[ADM]" | sed 's/^.\{8\}//')
+	done< <(_svn st | grep "^[ADM]" | sed 's/^.\{8\}//')
 
-	state=$(my_svn st | grep "^[ADM]")
+	state=$(_svn st | grep "^[ADM]")
 	if [[ -n "$state" ]]; then
-		my_svn commit .  -m "$message"
+		_svn commit .  -m "$message"
 	fi
 }
 
@@ -94,31 +95,31 @@ function batch_ci()
 #@ alia="up" help=""
 function update()
 {
-	my_svn update . --depth infinity --accept theirs-full --force -r "$revision"
+	_svn update . --depth infinity --accept theirs-full --force -r "$revision"
 }
 
 #@ alia="" help=""
 function cleanup()
 {
-	my_svn cleanup . 
+	_svn cleanup . 
 }
 
 #@ alia="" help="filter [M] files"
 function revert_modify()
 {
-	my_svn st | grep "^M" | sed 's/^.\{8\}//' |while read f ;do my_svn revert "$f"@ ; done
+	_svn st | grep "^M" | sed 's/^.\{8\}//' |while read f ;do _svn revert "$f"@ ; done
 }
 
 #@ alia="" help="filter [ADM] files"
 function revert_all()
 {
-	my_svn revert -R .
+	_svn revert -R .
 }
 #@ alia="" help=""
 function rm_unversioned()
 {
 	local dir="${1:-.}"							#@
-	my_svn cleanup --remove-unversioned "$dir"
+	_svn cleanup --remove-unversioned "$dir"
 }
 
 
@@ -126,10 +127,10 @@ function rm_unversioned()
 revert_external(){
 	while read dir
 	do
-		my_svn revert -R "$dir"
+		_svn revert -R "$dir"
 		rm_unversioned "$dir"
-		my_svn up "$dir"
-	done< <(my_svn st | grep "Performing status" |sed  "s/.*'\([^']*\)'.*/\1/")
+		_svn up "$dir"
+	done< <(_svn st | grep "Performing status" |sed  "s/.*'\([^']*\)'.*/\1/")
 }
 
 
@@ -140,27 +141,27 @@ function ignore_new_file()
 	while read f; do
 		d=`dirname "$f"`
 		b=`basename "$f"`
-		ignore=`my_svn propget svn:ignore "$d" 2>/dev/null`
+		ignore=`_svn propget svn:ignore "$d" 2>/dev/null`
 		if [ -n "$ignore" ]; then
 		    ignore="$ignore
 "
 		fi
 		ignore="$ignore$b"
-		my_svn propset svn:ignore "$ignore" "$d"
-	done< <(my_svn status | grep '^?' | sed 's/^? *//')
+		_svn propset svn:ignore "$ignore" "$d"
+	done< <(_svn status | grep '^?' | sed 's/^? *//')
 }
 
 
 #@ alia="sw" help=""
 function switch()
 {
-	my_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf"
+	_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf"
 }
 
 #@ alia="sw-ig-e" help=""
 function switch_ignore_externals()
 {
-	my_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf" --ignore-externals
+	_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf" --ignore-externals
 }
 
 # XARGPARES_DEBUG=true

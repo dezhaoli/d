@@ -14,16 +14,49 @@
 
 : ${xformat_last_seconds:=0}
 
+#https://web.archive.org/web/20191222201924/http://www.termsys.demon.co.uk/vtansi.htm
+
 XFORMAT_VERSION=2.2.0
+
+XFORMAT_BLACK='\033[0;30m'
 XFORMAT_RED='\033[0;31m'
+XFORMAT_GREEN='\033[0;32m'
+XFORMAT_YELLOW='\033[0;33m'
+XFORMAT_BLUE='\033[0;34m'
+XFORMAT_MAGENTA='\033[0;35m'
 XFORMAT_CYAN='\033[0;36m'
+XFORMAT_WHITE='\033[0;37m'
 XFORMAT_NC='\033[0m'
+
+XFORMAT_BG_BLACK='\033[0;40m'
+XFORMAT_BG_RED='\033[0;41m'
+XFORMAT_BG_GREEN='\033[0;42m'
+XFORMAT_BG_YELLOW='\033[0;43m'
+XFORMAT_BG_BLUE='\033[0;44m'
+XFORMAT_BG_MAGENTA='\033[0;45m'
+XFORMAT_BG_CYAN='\033[0;46m'
+XFORMAT_BG_WHITE='\033[0;47m'
 
 readonly \
         XFORMAT_VERSION \
-        XFORMAT_RED \
-        XFORMAT_CYAN \
         XFORMAT_NC \
+        XFORMAT_BLACK \
+        XFORMAT_RED \
+        XFORMAT_GREEN \
+        XFORMAT_YELLOW \
+        XFORMAT_BLUE \
+        XFORMAT_MAGENTA \
+        XFORMAT_CYAN \
+        XFORMAT_WHITE \
+        XFORMAT_NC \
+        XFORMAT_BG_BLACK \
+        XFORMAT_BG_RED \
+        XFORMAT_BG_GREEN \
+        XFORMAT_BG_YELLOW \
+        XFORMAT_BG_BLUE \
+        XFORMAT_BG_MAGENTA \
+        XFORMAT_BG_CYAN \
+        XFORMAT_BG_WHITE 
 
 #===========================
 
