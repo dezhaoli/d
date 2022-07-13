@@ -19,6 +19,12 @@ _lock()
   flock -w 5 77 || exit 1
 }
 
+_prepare()
+{
+    dbfile=$1
+    mkdir -p "$(dirname $dbfile)"
+    touch "$dbfile"
+}
 
 #@
 function set()
@@ -29,10 +35,10 @@ function set()
     ____ "$@"
 
 
+
     dbfile="$(realpath "$dbfile")"
+    _prepare "$dbfile"
 
-
-    touch "$dbfile"
     _lock "$dbfile"
     sed -i '' "/^[[:space:]]*$key=/d" "$dbfile"
     echo "$key=$value" >> "$dbfile"
@@ -45,8 +51,7 @@ function get()
     ____ "$@"
 
     dbfile="$(realpath "$dbfile")"
-
-    touch "$dbfile"
+    _prepare "$dbfile"
     _lock "$dbfile"
     echo $(sed -nE "/^[[:space:]]*$key=(.*)/{s//\1/;p;q;}" "$dbfile" )
 }

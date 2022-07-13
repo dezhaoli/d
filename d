@@ -25,6 +25,7 @@ _d_add_path()
 
 D_CONFIGURATION_FILE=~/.d/configuration.db
 
+
 _d_pair_set()
 {
 	xpair set -f "$D_CONFIGURATION_FILE" "$1" "$2"
