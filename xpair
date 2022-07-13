@@ -21,8 +21,8 @@ _lock()
 
 _prepare()
 {
-    dbfile=$1
-    mkdir -p "$(dirname $dbfile)"
+    local dbfile="$1"
+    mkdir -p "$(dirname "$dbfile")"
     touch "$dbfile"
 }
 
@@ -36,7 +36,7 @@ function set()
 
 
 
-    dbfile="$(realpath "$dbfile")"
+    # [[ -r "$dbfile" ]] && dbfile="$(realpath "$dbfile")"
     _prepare "$dbfile"
 
     _lock "$dbfile"
@@ -50,7 +50,7 @@ function get()
     local dbfile="$DEFAULT_KEY_VALUE_PAIR_FILE"       #@ -f;--file; help='the file to which save the key-value pair'
     ____ "$@"
 
-    dbfile="$(realpath "$dbfile")"
+    # [[ -r "$dbfile" ]] && dbfile="$(realpath "$dbfile")"
     _prepare "$dbfile"
     _lock "$dbfile"
     echo $(sed -nE "/^[[:space:]]*$key=(.*)/{s//\1/;p;q;}" "$dbfile" )
