@@ -37,20 +37,59 @@ $handle_win_path
 
 cd "\$(realpath "\$(dirname "\$0")")"
 ./$file_name.exe "\${args[@]}"
+exit \$?
 EOF
 
 	}
 
-	function create-gradlew-exe-wrapper()
+
+	function create-bat-wrapper()
 	{
-		local file="$1"
-		cat > "$file" <<EOF
+		local file=$1
+		local rename_file=$2
+
+		file=$(realpath "$file")
+		file=${file%%.bat}
+		# [[ -f "$file" ]] && return
+		rm -fr "$file"
+
+		local file_name=$(basename "$file")
+
+		cat > "${rename_file:-$file}" <<EOF
+#!/usr/bin/env -S bash
 # auto genarate by $(basename "${BASH_SOURCE[0]}")
-cd "\$(realpath "\$(dirname "\$0")")"
-cmd.exe /C gradlew.bat "\$@"
+. $(which d)
+bat $file_name "\$@"
 exit \$?
 EOF
 
+	}
+
+	function bat()
+	{
+		local args=()
+		if [[ "$1" =~ .bat$ ]]; then
+			args+=("$(wslpath -w "$1" )")
+		else
+			args+=("$(wslpath -w "${1}.bat" )")
+		fi
+		
+		shift
+		while (($#)); do
+			local item="$1"
+			shift
+			if [[ "$item" =~ .*=.* ]]; then
+				local lhs=${item%%=*}
+				local rhs=${item##*=}
+				if [[ -e "$rhs" ]]; then
+					args+=( "${lhs}=$(wslpath -w "$rhs" )" )
+					continue
+				fi
+			fi
+			args+=( "$item" )
+		done
+
+		cmd.exe /c "${args[@]}"
 	}
 
 	function to_win_path()
@@ -134,5 +173,6 @@ else
 	IS_WSL=false
 
 	function winpath() { : ; }
-	function create-gradlew-exe-wrapper() { : ; }
+	function bat() { : ; }
+	function create-bat-wrapper() { : ; }
 fi
