@@ -59,7 +59,7 @@ EOF
 #!/usr/bin/env -S bash
 # auto genarate by $(basename "${BASH_SOURCE[0]}")
 . $(which d)
-bat $file_name "\$@"
+bat ${file}.bat "\$@"
 exit \$?
 EOF
 
