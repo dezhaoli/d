@@ -50,7 +50,7 @@ EOF
 
 		file=$(realpath "$file")
 		file=${file%%.bat}
-		# [[ -f "$file" ]] && return
+		[[ -f "$file" ]] && return
 		rm -fr "$file"
 
 		local file_name=$(basename "$file")
