@@ -22,16 +22,3 @@ _d_add_path()
 	fi
 }
 
-
-D_CONFIGURATION_FILE=~/.d/configuration.db
-
-
-_d_pair_set()
-{
-	xpair set -f "$D_CONFIGURATION_FILE" "$1" "$2"
-}
-_d_pair_get()
-{
-	local value="$(xpair get -f "$D_CONFIGURATION_FILE" "$1")"
-	printf -v "$2" "%s" "${value}"
-}
