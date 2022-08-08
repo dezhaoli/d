@@ -119,3 +119,18 @@ function xformat-file-name-size()
 }
 
 
+#@
+function xformat-to-utf8-file()
+{
+  local path="$1"        #@
+  # ____ "$@"
+
+  
+  bom=$(xxd  -l 6 -p "$path")
+  if [[ $bom =~ ^fffe.* || $bom =~ ^feff.* ]]; then
+    local temp_file=$(mktemp)
+    iconv --from-code UTF-16 --to-code UTF-8 "$path" | tr -d '\r' > "$temp_file"
+    mv -f "$temp_file" "$path"
+  fi
+}
+
