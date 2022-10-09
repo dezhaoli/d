@@ -8,7 +8,16 @@
 
 
 
+# structure:
+# common: common function
+# all: api for all versions
+# v1:  api only for version 1
+# v2:  api only for version 2
+# entry
 
+
+
+############## common ############## 
 versionlatest()
 {
     local productid=$1
@@ -156,6 +165,7 @@ function cfg(){
 function productidlist()
 {
     jq ".$area | {area, dolphin} | del(.dolphin.download, .dolphin.\"pre_download\") " "$config_file"
+    jq ".$area | {area, puffer} | del(.puffer.download, .puffer.\"pre_download\") " "$config_file"
 }
 #@ alia=vl
 function versionlist()
@@ -171,6 +181,41 @@ gc.GetVersionList($productid,$pub_type)
 EOF
     python -c "$PYSCRIPT"
     return $? 
+}
+
+
+#@ alia=
+function newpuffer()
+{
+    local zip_file=                         #@ -f; --file;
+    local zip_file_link=                    #@ -l; --file-link;
+    local customstr=                        #@ -c; --custom-str
+    local versiondes=                       #@ -v; --version-des
+    local base_version=                     #@ -b; --base-version
+    local update_type=0                     #@ --update-type; choices=( 0 1 2 )
+    local dolphin_appversion=               #@ --dolphin-app-version
+    local dolphin_resversion=               #@ --dolphin-res-version
+
+    local productid=                        #@
+    local res_version=                      #@
+    ____ "$@"
+
+
+
+    wrap_str customstr versiondes base_version dolphin_appversion dolphin_resversion
+    wrap_num update_type
+
+    [[ -n "$zip_file" && ! -f "$zip_file" ]] && die "[$zip_file] not found."
+
+
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.NewPuffer($productid, "$res_version", filepath="$zip_file",link="$zip_file_link" $update_type $dolphin_appversion $dolphin_resversion $base_version $customstr $versiondes)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $?
 }
 
 #@ alia=cv
@@ -258,6 +303,38 @@ EOF
     python -c "$PYSCRIPT"
     return $? 
 }
+
+
+#@ alia=
+function prepublish-puffer()
+{
+    local productid=                        #@
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.PrePublish($productid, True)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
+#@ alia=
+function publish-puffer()
+{
+    local productid=                        #@
+    ____ "$@"
+
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.Publish($productid, True)
+
+EOF
+    python -c "$PYSCRIPT"
+    return $? 
+}
+
 
 #@ 
 function cleanup()
@@ -676,7 +753,7 @@ function main-ex()
     cd "$(dirname "$0")"
 
     MARK="result:"
-    CONFIG_FILE="./gcloud_configs.xml"
+    : ${CONFIG_FILE:="./gcloud_configs.xml"}
 
     : ${config_file:=$CONFIG_FILE}
     : ${area:=$AREA}

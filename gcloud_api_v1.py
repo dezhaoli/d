@@ -1,4 +1,5 @@
 #!/usr/bin/python2
+#coding=utf-8
 ###########################################################
 # @Author: dezhaoli@tencent.com
 # @Date:   
@@ -125,6 +126,22 @@ class GCAPI():
                         if is_print : self.output(json.dumps(res_item)) 
                         return True
         return False
+
+    @classmethod
+    def GetVersion(self, productid, versionstr, appversionstr=None):
+        params = [
+            ("Uin", uin ),
+            ("ProductID", productid),
+            ("VersionStr", versionstr),
+        ]
+        if appversionstr is not None:
+            params.append(("AppVersionStr", appversionstr))
+
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "GetVersion",
+            params=params, debug=verbose_openapi)
+        return result
+
 
     @classmethod
     def UpdateVersion(self, productid, version, available_type=None, gray_rule_id=None, customstr=None, versiondes=None):
@@ -355,27 +372,28 @@ class GCAPI():
         return version_info
 
     @classmethod
-    def PrePublish(self, productid):
+    def PrePublish(self, productid, isPuffer=False):
         params = [
             ("Uin", uin),
             ("ProductID", productid),
         ]
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "PrePublish",
+            accessid, accesskey, ("dynupdate" if isPuffer else "update"), "PrePublish",
             params=params, debug=verbose_openapi)
         return result
 
     @classmethod
-    def Publish(self, productid):
+    def Publish(self, productid, isPuffer=False):
         params = [
             ("Uin", uin),
             ("ProductID", productid),
             ("Force", 1),
         ]
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "Publish",
+            accessid, accesskey, ("dynupdate" if isPuffer else "update"), "Publish",
             params=params, debug=verbose_openapi)
         return result
+
 
     # available_type:   版本目标用户。可选值:0 - 不可用，1 - 普通用户可用，2 - 灰度用户可用，3 - 普通用户和灰度用户都可用，4 - 审核版本，缺省 1
     # gray_rule_id:     灰度规则 ID, 灰度用户可用时必须指定。
@@ -476,6 +494,82 @@ class GCAPI():
         # self.Publish(productid)
 
         if verbose : print ("NewRes done!")
+
+
+    @classmethod
+    def NewPuffer(self, productid, versionstr, filepath=None,link=None,md5=None, update_type=0, dolphin_productid=None,dolphin_appversion=None,dolphin_resversion=None, baseversion=None, customstr=None, versiondes=None, version_info=None):
+        
+        dolphinVersionID = None
+        if update_type == 2:
+            assert dolphin_productid,'error: Failed to get version, dolphin_productid not supplied [%s].'%(dolphin_productid)
+            assert dolphin_appversion,'error: Failed to get version, dolphin_appversion not supplied [%s].'%(dolphin_appversion)
+            assert dolphin_resversion,'error: Failed to get version, dolphin_resversion not supplied [%s].'%(dolphin_resversion)
+
+
+            res = self.GetVersion(dolphin_productid, dolphin_resversion, appversionstr=dolphin_appversion)
+            dolphinVersionID = res["result"]["VersionID"]
+
+        elif update_type == 1:
+
+            assert dolphin_productid,'error: Failed to get version, dolphin_productid not supplied [%s].'%(dolphin_productid)
+            assert dolphin_appversion,'error: Failed to get version, dolphin_appversion not supplied [%s].'%(dolphin_appversion)
+
+            res = self.GetVersion(dolphin_productid, dolphin_appversion)
+            dolphinVersionID = res["result"]["VersionID"]
+
+
+
+        if not version_info:
+            # center/NewUploadTask
+            result = self.NewUploadTask(productid, versionstr, 11)
+
+            TaskInfo = result["result"]["TaskInfo"]
+            UploadTaskID = result["result"]["UploadTaskID"]
+
+            # file/UploadUpdateFile
+            self.UploadUpdateFile(UploadTaskID,TaskInfo,filepath=filepath,link=link,md5=md5,baseversion=baseversion)
+
+            # center/GetUploadTaskStat
+            version_info = self.GetUploadTaskStat(UploadTaskID)
+
+
+        # dynupdate/NewRes
+        params=[
+            ("Uin", uin),
+            ("ProductID", productid),
+            ("ResourceVersion", versionstr),
+            ("ResourceName", versionstr),
+            ("VersionInfo", version_info),
+            ("ResourceAttr", 1),
+        ]
+
+        if customstr :
+            params.append(("ResCustomStr", customstr))
+        if versiondes :
+            params.append(("ResourceDes", versiondes))
+        if dolphin_productid:
+            params.append(("DolphinProductID", dolphin_productid))
+        if dolphin_appversion:
+            params.append(("DolphinAppVersion", dolphin_appversion))
+        if dolphin_resversion:
+            params.append(("DolphinResVersion", dolphin_resversion))
+        if dolphinVersionID:
+            params.append(("DolphinVersionID", dolphinVersionID))
+        if update_type != 0:
+            params.append(("UpdateType", update_type))
+
+
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "dynupdate", "NewRes",
+            params=params, debug=verbose_openapi)
+        if verbose : print ("new puffer succeeded...")
+
+        # pre-publish
+        self.PrePublish(productid, True)
+        # publish
+        # self.Publish(productid)
+
+        if verbose : print ("NewPuffer done!")
 
     def NewWorldListRule(self):
         params = [
