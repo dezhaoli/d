@@ -39,13 +39,11 @@ function create-access-token()
   fi
   
   api_url='http://apigw.o.oa.com/auth_api/token/'
-$l_is_debug && set -x
   result=$(curl -s "$api_url" \
             -d "app_code=$APP_CODE" \
             -d "app_secret=$APP_SECRET" \
             -d "env_name=$l_env_type" \
             $args )
-set +x
   access_token="$(echo "$result" | jq -r .data.access_token)"
 
   if [[ -z "$access_token" || "$access_token" == "null" ]]; then
@@ -62,14 +60,12 @@ function refresh-access_token()
 
     api_url='http://apigw.o.oa.com/auth_api/refresh_token/'
     refresh_token="$1"
-    $l_is_debug && set -x
     result=$(curl -G -s "$api_url" \
             -d "app_code=$APP_CODE" \
             -d "refresh_token=$refresh_token" \
             -d "env_name=$l_env_type" \
             -d "grant_type=refresh_token" \
             $args )
-    set +x
     access_token="$(echo "$result" | jq -r .data.access_token)"
 
     if [[ -z "$access_token" || "$access_token" == "null" ]]; then
@@ -79,11 +75,58 @@ function refresh-access_token()
     echo $access_token
 }
 
+#@
+function artifactory-search()
+{
+    local file_name=                 #@
+    ____ "$@"
+
+    api_url="https://bkrepo.woa.com/web/repository/api/node/search"
+
+    if [[ "$l_artifactory_type" == PIPELINE ]]; then
+        local repoName=pipeline
+    else
+        local repoName=custom
+    fi
+    
+
+#     read -d '' post_data <<EOF
+# {   
+#     "page":{"pageNumber":1,"pageSize":20},
+#     "sort":{"properties":["folder","lastModifiedDate"],"direction":"DESC"},
+#     "rule":{"rules":[
+#                 {"field":"projectId","value":"aov","operation":"EQ"},
+#                 {"field":"repoName","value":"$repoName","operation":"EQ"},
+#                 {"field":"path","value":"/common/cfg/","operation":"EQ"}],
+#             "relation":"AND"}
+# }
+# EOF
+    read -d '' post_data <<EOF
+{
+    "page":{"pageNumber":1,"pageSize":20},
+    "sort":{"properties":["folder","lastModifiedDate"],"direction":"DESC"},
+    "rule":{"rules":[
+                {"field":"projectId","value":"aov","operation":"EQ"},
+                {"field":"repoName","value":"$repoName","operation":"EQ"},
+                {"field":"name","value":"*$file_name*","operation":"MATCH"}],
+            "relation":"AND"}
+}
+
+EOF
+
+    result=$(curl -s -X POST \
+    -H "Content-Type: application/json" \
+    -H "Accept:application/json" \
+    -d "$post_data" \
+    --cookie " bk_ticket=${l_bk_ticket};  " \
+    "$api_url" )
 
 
+    echo "$result"
+}
 
 
-#http://docs.bkapigw.oa.com/apigw-api/devops/apigw-api/devops/prod/app_artifactory_list/doc
+#https://bkapigw.woa.com/docs/apigw-api/devops/apigw-api/devops/prod/app_artifactory_list/doc
 #@
 function get-artifactory-list()
 {
@@ -94,18 +137,16 @@ function get-artifactory-list()
   
     api_url="http://devops.apigw.o.oa.com/${l_env_type}/v2/apigw-user/artifactories/projects/${l_project_id}"
     api_url="${api_url}/pipelines/${pipelineId}/builds/${buildId}/search"
-    $l_is_debug && set -x
     result=$(curl -s -i -X GET "" \
     -H "Accept:application/json" \
     -H "Content-Type:application/json" \
     "$api_url?access_token=${l_access_token}" | sed '1,16d')
-    set +x
 
     echo "$result"
 
 }
 
-#http://docs.bkapigw.oa.com/apigw-api/devops/apigw-api/devops/prod/app_artifactory_thirdPartyDownloadUrl/doc
+#https://bkapigw.woa.com/docs/apigw-api/devops/apigw-api/devops/prod/user_artifactory_thirdPartyDownloadUrl/doc
 #@
 function get-download-url()
 {
@@ -114,17 +155,15 @@ function get-download-url()
 
     api_url="http://devops.apigw.o.oa.com/${l_env_type}/v2/apigw-user/artifactories/projects/${l_project_id}"
     api_url="${api_url}/thirdPartyDownloadUrl"
-    $l_is_debug && set -x
     result=$(curl -s -i -X GET "" \
     -H "Accept:application/json" \
     -H "Content-Type:application/json" \
     "$api_url?path=${path}&amp;artifactoryType=${l_artifactory_type}&amp;access_token=${l_access_token}" )
-    set +x
 
     download_url="$(echo "$result" | sed -n '/{/,$p' | jq -r .data[0])"
     if [[ -z "$download_url" || "$download_url" == "null" ]]; then
-    echo 'Failed to get download_url' 1>&2
-    exit 1
+        echo 'Failed to get download_url' 1>&2
+        exit 1
     fi
     echo $download_url
 }
@@ -142,7 +181,6 @@ function get-build-variables-value()
 
     api_url="https://devops.apigw.o.woa.com/${l_env_type}/v3/apigw-user/projects/${l_project_id}"
     api_url="${api_url}/pipelines/${pipelineId}/builds/${buildId}/variables"
-    $l_is_debug && set -x
     result=$(curl -s -X POST \
     -H "X-Bkapi-Authorization: {\"access_token\": \"${l_access_token}\"}" \
     -H "Content-Type: application/json" \
@@ -151,7 +189,6 @@ function get-build-variables-value()
      ]" \
     -H "Accept:application/json" \
     "$api_url" )
-    set +x
 
     echo "$result"
 }
@@ -164,7 +201,7 @@ function main-ex()
     l_env_type="prod"                                                 #@ --env-type; choices=( prod test ); help='set env type'
     l_project_id="aov"                                                #@ --project-id; help='set project id'
     l_access_token=                                                   #@ --token; help='set access_token'
-    l_is_debug=false                                                  #@ --debug-mode; action='store_true'; help='open debug mode'
+    l_bk_ticket=                                                      #@ --ticket; help='set bk_ticket'
     ____ "$@"
 
     APP_CODE=oadezhaoli
