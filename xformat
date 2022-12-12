@@ -108,6 +108,16 @@ function info() {
   return 0
 }
 
+function xformat-red(){
+  echo -e "${XFORMAT_RED}$* ${XFORMAT_NC}"
+}
+function xformat-green(){
+  echo -e "${XFORMAT_GREEN}$* ${XFORMAT_NC}"
+}
+function xformat-yellow(){
+  echo -e "${XFORMAT_YELLOW}$* ${XFORMAT_NC}"
+}
+
 #@
 function xformat-file-name-size()
 {

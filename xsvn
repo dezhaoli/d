@@ -178,7 +178,7 @@ function _main(){
 	svn_head_num=0 								#@ --num;
 
 	ws=""										#@ 
-	cmds=()										#@ nargs='+'; choices=( add del ci co up cleanup sw sw-ig-e revert_modify revert_all rm_unversioned batch_ci ignore_new_file )
+	cmds=()										#@ nargs='+'; choices=( add del ci co up cleanup sw switch sw-ig-e revert_modify revert_all rm_unversioned batch_ci ignore_new_file )
 	____ "$@"
 
 	if [[ -n "$credential" ]]; then

@@ -139,16 +139,26 @@ pythonc()
 
 wrap_str() { 
     while (( $# > 0 )); do
-        a=$1
+        local a=$1
         shift
         [[ -n "${!a}" ]] && printf -v "$a" "%s"  ",$a='${!a}'"; 
     done
 }
 wrap_num() { 
     while (( $# > 0 )); do
-        a=$1
+        local a=$1
         shift
         [[ -n "${!a}" ]] && printf -v "$a" "%s"  ",$a=${!a}"; 
+    done
+}
+
+
+
+wrap_bool() { 
+    while (( $# > 0 )); do
+        local a=$1
+        shift
+        printf -v "$a" "%s"  ",$a=$( ${!a} && echo "True" || echo "False" )"; 
     done
 }
 ############## all ############## 
@@ -171,12 +181,14 @@ function productidlist()
 function versionlist()
 {
     local productid=                        #@
-    local pub_type=0                        #@ --pubtype; choices=( 0 2 ); help='0:prepublic, 2:public'
+    local pub_type=0                        #@ --pubtype; choices=( 0 1 2 ); help='dolphin:0 prepublic, 2 public ; puffer:0 ,1'
     ____ "$@"
+
+    wrap_bool is_puffer
 
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.GetVersionList($productid,$pub_type)
+gc.GetVersionList($productid,$pub_type  $is_puffer )
 
 EOF
     python -c "$PYSCRIPT"
@@ -257,7 +269,7 @@ EOF
 }
 
 #@ alia=dv
-function delete_version()
+function delete-version()
 {
     local productid=                        #@
     local version=                          #@ 
@@ -280,9 +292,10 @@ function prepublish()
     local productid=                        #@
     ____ "$@"
 
+    wrap_bool is_puffer
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.PrePublish($productid)
+gc.PrePublish($productid $is_puffer )
 
 EOF
     python -c "$PYSCRIPT"
@@ -295,9 +308,10 @@ function publish()
     local productid=                        #@
     ____ "$@"
 
+    wrap_bool is_puffer
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.Publish($productid)
+gc.Publish($productid $is_puffer  )
 
 EOF
     python -c "$PYSCRIPT"
@@ -305,35 +319,6 @@ EOF
 }
 
 
-#@ alia=
-function prepublish-puffer()
-{
-    local productid=                        #@
-    ____ "$@"
-
-    read -d '' PYSCRIPT <<EOF
-$PYSCRIPT_GC_INIT
-gc.PrePublish($productid, True)
-
-EOF
-    python -c "$PYSCRIPT"
-    return $? 
-}
-
-#@ alia=
-function publish-puffer()
-{
-    local productid=                        #@
-    ____ "$@"
-
-    read -d '' PYSCRIPT <<EOF
-$PYSCRIPT_GC_INIT
-gc.Publish($productid, True)
-
-EOF
-    python -c "$PYSCRIPT"
-    return $? 
-}
 
 
 #@ 
@@ -431,9 +416,10 @@ function v1_version()
     local pub_type=0                        #@ --pubtype; choices=( 0 2 ); help='0:prepublic, 2:public'
     ____ "$@"
 
+    wrap_bool is_puffer
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.GetVersionInfo($productid, "$versionstr", $pub_type, is_print=True)
+gc.GetVersionInfo($productid, "$versionstr", $pub_type, is_print=True $is_puffer )
 
 EOF
     pythonc "$PYSCRIPT" | jq .
@@ -537,19 +523,28 @@ function v1_upversion()
     local versiondes=                       #@ -v; --version-des
     local available_type=                   #@ -t; --available-type
     local gray_rule_id=                     #@ -g; --gray-rule-id
+
+    local resource_attr=                    #@ --puffer-resource_attr; choices=( 0 1 2 )
     ____ "$@"
 
 
 
 
     wrap_str customstr versiondes 
-    wrap_num available_type gray_rule_id 
+    wrap_num available_type gray_rule_id resource_attr
+    wrap_bool is_puffer
+    is_puffer=${is_puffer#,}
 
 
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.UpdateVersion($productid, "$version" $customstr $versiondes $available_type $gray_rule_id)
-gc.PrePublish($productid)
+$is_puffer
+if is_puffer:
+    gc.UpdateVersionPuffer($productid, "$version" $customstr $versiondes $resource_attr )
+    gc.PrePublish($productid, $is_puffer)
+else:
+    gc.UpdateVersion($productid, "$version" $customstr $versiondes $available_type $gray_rule_id )
+    gc.PrePublish($productid)
 EOF
     python -c "$PYSCRIPT"
     return $?
@@ -748,6 +743,7 @@ function main-ex()
     local is_debug=false                    #@ --debug; action=store_true
     area=""                                 #@ --area; help='same as export AREA'
     config_file=""                          #@ --config-file;
+    is_puffer=false                         #@ --puffer; action=store_true
     ____ "$@"
 
     cd "$(dirname "$0")"

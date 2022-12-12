@@ -53,6 +53,33 @@ class GCAPI():
         return result
 
     @classmethod
+    def QueryVersionPuffer(self, productid,pub_type=0, querystr=None):
+        params = [
+            ("PubType", pub_type),
+            ("ProductID", productid),
+        ]
+
+        if querystr !=None:
+            params.append(("QueryStr", querystr))
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "dynupdate", "QueryRes",
+            params=params, debug=verbose_openapi)
+        return result
+
+
+    @classmethod
+    def PrePublish(self, productid, is_puffer=False):
+        params = [
+            ("Uin", uin),
+            ("ProductID", productid),
+        ]
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, ("dynupdate" if is_puffer else "update"), "PrePublish",
+            params=params, debug=verbose_openapi)
+        return result
+
+
+    @classmethod
     def CopyVersion(self, src_productid, src_app_ver, des_productid, des_app_ver, src_res_ver=None, des_res_ver=None, pub_type=0, diff_app_num=0):
         result = self.QueryVersion(src_productid, pub_type)
 
@@ -113,19 +140,39 @@ class GCAPI():
             
 
     @classmethod
-    def GetVersionInfo(self, productid, versionstr, pub_type=0, is_print=False):
-        result = self.QueryVersion(productid, pub_type)
+    def GetVersionInfo(self, productid, versionstr, pub_type=0, is_print=False, is_puffer=False):
 
-        for app_item in result["result"]:
-            if app_item['VersionStr'] == versionstr:
-                if is_print : self.output(json.dumps(app_item)) 
-                return True
-            else:
-                for res_item in app_item['ResLine']:
-                    if res_item['VersionStr'] == versionstr:
-                        if is_print : self.output(json.dumps(res_item)) 
-                        return True
+
+        if is_puffer:
+            result = self.GetVersionPuffer(productid, versionstr, pub_type)
+            if is_print : self.output(json.dumps(result["result"]))
+
+        else:
+            result = self.QueryVersion(productid, pub_type)
+
+            for app_item in result["result"]:
+                if app_item['VersionStr'] == versionstr:
+                    if is_print : self.output(json.dumps(app_item)) 
+                    return True
+                else:
+                    for res_item in app_item['ResLine']:
+                        if res_item['VersionStr'] == versionstr:
+                            if is_print : self.output(json.dumps(res_item)) 
+                            return True
         return False
+
+    # 发布环境类型，可选值:0- 未发布，1- 预发布， 2 - 正式发布，缺省为 0
+    @classmethod
+    def GetVersionPuffer(self, productid, versionstr, pub_type=2):
+        params = [
+            ("ProductID", productid),
+            ("ResourceVersion", versionstr),
+            ("PubType", pub_type),
+        ]
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "dynupdate", "GetRes",
+            params=params, debug=verbose_openapi)
+        return result
 
     @classmethod
     def GetVersion(self, productid, versionstr, appversionstr=None):
@@ -156,12 +203,34 @@ class GCAPI():
                 params.append(("GrayRuleID", gray_rule_id))
             
         if not customstr == None:
-
             params.append(("CustomStr", customstr))
+
         if not versiondes == None:
             params.append(("VersionDes", versiondes))
+
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
             accessid, accesskey, "update", "UpdateVersion",
+            params=params, debug=verbose_openapi)
+        return result
+
+    @classmethod
+    def UpdateVersionPuffer(self, productid, version, resource_attr=None,  customstr=None, versiondes=None):
+        params = [
+            ("Uin", uin),
+            ("ProductID", productid),
+            ("ResourceVersion", version)
+        ]
+        if not resource_attr == None:
+            params.append(("ResourceAttr", resource_attr))
+            
+        if not customstr == None:
+            params.append(("ResCustomStr", customstr))
+
+        if not versiondes == None:
+            params.append(("ResourceDes", versiondes))
+
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "dynupdate", "UpdateRes",
             params=params, debug=verbose_openapi)
         return result
 
@@ -220,13 +289,18 @@ class GCAPI():
 
 
     @classmethod
-    def GetVersionList(self, productid, pub_type=0):
-        result = self.QueryVersion(productid, pub_type)
+    def GetVersionList(self, productid, pub_type=0, is_puffer=False):
+        if is_puffer:
+            result = self.QueryVersionPuffer(productid, pub_type)
+            for item in result["result"]:
+              print item['ResourceVersion']
+        else:
+            result = self.QueryVersion(productid, pub_type)
 
-        for app_item in result["result"]:
-          print app_item['VersionStr']
-          for res_item in app_item['ResLine']:
-            print "  %s" % res_item['VersionStr']
+            for app_item in result["result"]:
+              print app_item['VersionStr']
+              for res_item in app_item['ResLine']:
+                print "  %s" % res_item['VersionStr']
 
     @classmethod
     def DeleteVersion(self, productid, versionstr):
@@ -372,25 +446,25 @@ class GCAPI():
         return version_info
 
     @classmethod
-    def PrePublish(self, productid, isPuffer=False):
+    def PrePublish(self, productid, is_puffer=False):
         params = [
             ("Uin", uin),
             ("ProductID", productid),
         ]
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, ("dynupdate" if isPuffer else "update"), "PrePublish",
+            accessid, accesskey, ("dynupdate" if is_puffer else "update"), "PrePublish",
             params=params, debug=verbose_openapi)
         return result
 
     @classmethod
-    def Publish(self, productid, isPuffer=False):
+    def Publish(self, productid, is_puffer=False):
         params = [
             ("Uin", uin),
             ("ProductID", productid),
             ("Force", 1),
         ]
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, ("dynupdate" if isPuffer else "update"), "Publish",
+            accessid, accesskey, ("dynupdate" if is_puffer else "update"), "Publish",
             params=params, debug=verbose_openapi)
         return result
 
