@@ -21,7 +21,6 @@ __d_init()
 
 
 
-
 __d_add_path()
 {
 	local p="$1"
