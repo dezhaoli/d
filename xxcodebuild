@@ -23,6 +23,7 @@ archive()
 			-sdk iphoneos \
 			-derivedDataPath "$DERIVED_DATA_DIR" \
 			archive -archivePath "$ARCHIVE_FILE" \
+			-allowProvisioningUpdates \
 			ONLY_ACTIVE_ARCH=NO \
 			CODE_SIGN_STYLE="Automatic" \
 			PROVISIONING_STYLE="Automatic" \
