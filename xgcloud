@@ -158,6 +158,9 @@ wrap_bool() {
     while (( $# > 0 )); do
         local a=$1
         shift
+        if [[ "${!a}" =~ "=" ]]; then
+            continue
+        fi
         printf -v "$a" "%s"  ",$a=$( ${!a} && echo "True" || echo "False" )"; 
     done
 }
@@ -741,7 +744,7 @@ EOF
 function main-ex()
 {
     local is_debug=false                    #@ --debug; action=store_true
-    area=""                                 #@ --area; help='same as export AREA'
+    area=""                                 #@ --gc-area; help='same as export AREA'
     config_file=""                          #@ --config-file;
     is_puffer=false                         #@ --puffer; action=store_true
     ____ "$@"

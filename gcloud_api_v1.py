@@ -605,6 +605,7 @@ class GCAPI():
 
             # center/GetUploadTaskStat
             version_info = self.GetUploadTaskStat(UploadTaskID)
+            print ("version_info:[%s]" % version_info)
 
 
         # dynupdate/NewRes

@@ -1,10 +1,10 @@
 #!/usr/bin/python2
+# -*- coding: utf-8 -*-
 ###########################################################
 # @Author: dezhaoli@tencent.com
 # @Date:   
 # Please contact dezhaoli if you have any questions.
 ###########################################################
-
 import random
 import time
 import datetime
@@ -527,7 +527,7 @@ class GCAPI():
         return result
 
     @classmethod
-    def GetVersionList(self, productid, pub_type=0):
+    def GetVersionList(self, productid, pub_type=0, is_puffer=False):
         result = self.GetAllVersion(productid, pub_type)
 
         for app_item in result["result"]:

@@ -1,0 +1,33 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+#@
+function _main()
+{
+    local input_path=           #@ 
+    local zip_path=             #@ -o; 
+    local is_verbose=false      #@ -v; --verbose; action=store_true
+    ____ "$@"
+
+    if [[ -d "$input_path" ]]; then
+
+        pushd "$input_path" > /dev/null
+
+        : ${zip_path:="$input_path.zip"}
+
+
+        local temp_zip_path="$zip_path.$RANDOM"
+        zip -r -0 -q    -D "$temp_zip_path" *
+        rm -f "$zip_path" 
+        mv -f "$temp_zip_path" "$zip_path" 
+        popd > /dev/null
+
+    fi
+}
+
+main "$@"
