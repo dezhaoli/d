@@ -28,18 +28,9 @@ XFORMAT_CYAN='\033[0;36m'
 XFORMAT_WHITE='\033[0;37m'
 XFORMAT_NC='\033[0m'
 
-XFORMAT_BG_BLACK='\033[0;40m'
-XFORMAT_BG_RED='\033[0;41m'
-XFORMAT_BG_GREEN='\033[0;42m'
-XFORMAT_BG_YELLOW='\033[0;43m'
-XFORMAT_BG_BLUE='\033[0;44m'
-XFORMAT_BG_MAGENTA='\033[0;45m'
-XFORMAT_BG_CYAN='\033[0;46m'
-XFORMAT_BG_WHITE='\033[0;47m'
 
 readonly \
         XFORMAT_VERSION \
-        XFORMAT_NC \
         XFORMAT_BLACK \
         XFORMAT_RED \
         XFORMAT_GREEN \
@@ -48,15 +39,7 @@ readonly \
         XFORMAT_MAGENTA \
         XFORMAT_CYAN \
         XFORMAT_WHITE \
-        XFORMAT_NC \
-        XFORMAT_BG_BLACK \
-        XFORMAT_BG_RED \
-        XFORMAT_BG_GREEN \
-        XFORMAT_BG_YELLOW \
-        XFORMAT_BG_BLUE \
-        XFORMAT_BG_MAGENTA \
-        XFORMAT_BG_CYAN \
-        XFORMAT_BG_WHITE 
+        XFORMAT_NC 
 
 #===========================
 
@@ -75,7 +58,7 @@ function xformat-time {
   printf '%02d\n' $s
 }
 
-function _xformat_echo() {
+_xformat_echo() {
   if $XFORMAT_IS_PRINT_TIME ; then
     echo -e  "$(date +%T)" "[elapsed: $(xformat-time $(($SECONDS - $xformat_last_seconds )))]" "$*"
     xformat_last_seconds=$SECONDS
@@ -108,14 +91,170 @@ function info() {
   return 0
 }
 
-function xformat-red(){
-  echo -e "${XFORMAT_RED}$* ${XFORMAT_NC}"
+function xformat-colorize()
+{
+  __xformat_parse_args()
+  {
+    while true; do
+      if [[ "$1" == "--dim" ]]; then
+        args+=( --attr DIM )
+        shift
+      elif [[ "$1" == "--bright" ]]; then
+        args+=( --attr BRIGHT )
+        shift
+      elif [[ "$1" == "--underscore" ]]; then
+        args+=( --attr UNDERSCORE )
+        shift
+      elif [[ "$1" == "--blink" ]]; then
+        args+=( --attr BLINK )
+        shift
+      else
+        args+=( "$*" )
+        break
+      fi
+    done
+    xformat-text "${args[@]}"
+  }
+  red()
+  {
+    local args=( --fg RED )
+    __xformat_parse_args "$@"
+  }
+  green()
+  {
+    local args=( --fg GREEN )
+    __xformat_parse_args "$@"
+  }
+  yellow()
+  {
+    local args=( --fg YELLOW )
+    __xformat_parse_args "$@"
+  }
+  blue()
+  {
+    local args=( --fg BLUE )
+    __xformat_parse_args "$@"
+  }
+  magenta()
+  {
+    local args=( --fg MAGENTA )
+    __xformat_parse_args "$@"
+  }
+  cyan()
+  {
+    local args=( --fg CYAN )
+    __xformat_parse_args "$@"
+  }
+  white()
+  {
+    local args=( --fg WHITE )
+    __xformat_parse_args "$@"
+  }
+
+  xred()
+  {
+    local args=( --fg BLACK --bg RED )
+    __xformat_parse_args "$@"
+  }
+  xgreen()
+  {
+    local args=( --fg BLACK --bg GREEN )
+    __xformat_parse_args "$@"
+  }
+  xyellow()
+  {
+    local args=( --fg BLACK --bg YELLOW )
+    __xformat_parse_args "$@"
+  }
+  xblue()
+  {
+    local args=( --fg BLACK --bg BLUE )
+    __xformat_parse_args "$@"
+  }
+  xmagenta()
+  {
+    local args=( --fg BLACK --bg MAGENTA )
+    __xformat_parse_args "$@"
+  }
+  xcyan()
+  {
+    local args=( --fg BLACK --bg CYAN )
+    __xformat_parse_args "$@"
+  }
+  xwhite()
+  {
+    local args=( --fg BLACK --bg WHITE )
+    __xformat_parse_args "$@"
+  }
+
 }
-function xformat-green(){
-  echo -e "${XFORMAT_GREEN}$* ${XFORMAT_NC}"
-}
-function xformat-yellow(){
-  echo -e "${XFORMAT_YELLOW}$* ${XFORMAT_NC}"
+
+
+
+#@ help='xformat-text --fg BLACK --bg GREEN --attr UNDERSCORE message'
+function xformat-text(){
+  local fg bg attr
+  while (($#>2)); do
+    if [[ "$1" == '--fg' ]]; then
+        fg="${2^^}"
+    elif [[ "$1" == '--bg' ]]; then
+        bg="${2^^}"
+    elif [[ "$1" == '--attr' ]]; then
+        attr="${2^^}"
+    else
+        die "unsupported argument: '$1' "
+    fi
+    shift 2
+  done
+
+  # set display attibutes
+  local attibutes
+  {
+    if [[ ! ${__xformat_color_map@a} == A ]]; then
+      declare -A __xformat_color_map=(
+        [BLACK]=0
+        [RED]=1
+        [GREEN]=2
+        [YELLOW]=3
+        [BLUE]=4
+        [MAGENTA]=5
+        [CYAN]=6
+        [WHITE]=7
+
+        [BRIGHT]=1
+        [DIM]=2
+        [UNDERSCORE]=4
+        [BLINK]=5
+        [REVERSE]=7
+        [HIDDEN]=8
+      )
+
+      declare -A __xformat_color_cache
+    fi
+
+    local key="${fg:-_}${bg:-_}${attr:-_}"
+    if [[ -n "${__xformat_color_cache[$key]}" ]]; then
+      attibutes="${__xformat_color_cache[$key]}"
+    else
+      attibutes="\033[0"
+
+      if [[ -n "$fg" && -n "${__xformat_color_map[$fg]}" ]]; then
+        attibutes="${attibutes};3${__xformat_color_map[$fg]}"
+      fi
+
+      if [[ -n "$bg" && -n "${__xformat_color_map[$bg]}" ]]; then
+        attibutes="${attibutes};10${__xformat_color_map[$bg]}"
+      fi
+
+      if [[ -n "$attr" && -n "${__xformat_color_map[$attr]}" ]]; then
+        attibutes="${attibutes};${__xformat_color_map[$attr]}"
+      fi
+
+      attibutes="${attibutes}m"
+      __xformat_color_cache[$key]=$attibutes
+    fi
+  }
+  echo -e "${attibutes}$* ${XFORMAT_NC}" 
 }
 
 #@
@@ -139,7 +278,7 @@ function xformat-to-utf8-file()
   bom=$(xxd  -l 6 -p "$path")
   if [[ $bom =~ ^fffe.* || $bom =~ ^feff.* ]]; then
     local temp_file=$(mktemp)
-    iconv --from-code UTF-16 --to-code UTF-8 "$path" | tr -d '\r' > "$temp_file"
+    iconv --from-code UTF-16 --to-code UTF-8 "$path" | tr -d '\r' > "$temp_file" || return 1
     mv -f "$temp_file" "$path"
   fi
 }
