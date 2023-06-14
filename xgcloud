@@ -404,6 +404,7 @@ function newres()
 #@ 
 function upversion()
 {
+    ____ "$@"
     ${API}_upversion "$@"
 }
 ############## V1 ############## 
@@ -741,11 +742,12 @@ EOF
 
 
 ##@@ kind='main-ex'; help='global options:'
-function main-ex()
+function xgcloud-main-ex()
 {
     local is_debug=false                    #@ --debug; action=store_true
     area=""                                 #@ --gc-area; help='same as export AREA'
     config_file=""                          #@ --config-file;
+    local uin=""                            #@ --uin;
     is_puffer=false                         #@ --puffer; action=store_true
     ____ "$@"
 
@@ -765,9 +767,9 @@ function main-ex()
     wrap_num _verbose_openapi
 
 
-    if [[ " $* " =~ " -h " || " $* " =~ " help " || " $* " =~ " cfg " || "$#" == 0 ]]; then
-        return
-    fi
+    # if [[ " $* " =~ " -h " || " $* " =~ " help " || " $* " =~ " cfg " || "$#" == 0 ]]; then
+    #     return
+    # fi
 
     [[ -n "$area" ]] || die "\$AREA should be set before $(basename "$0") call"
     [[ -f "$config_file" ]] || die "Config file [$config_file] not found. "
@@ -794,6 +796,9 @@ function main-ex()
 
     : ${GAME_ID:?$ERR} ${UIN:?$ERR} ${HOST_FOR_FILE:?$ERR} ${HOST_FOR_COMMON:?$ERR} ${ACCESS_ID:?$ERR} ${ACCESS_KEY:?$ERR} ${REGION_ID:?$ERR}
 
+    if [[ -n "$uin" ]]; then
+        UIN="$uin"
+    fi
 
     read -d '' PYSCRIPT_GC_INIT <<EOF
 import sys, os
@@ -802,9 +807,9 @@ from gcloud_api_$API import GCAPI as gc
 gc.Init("$UIN", "$GAME_ID", "$ACCESS_ID", "$ACCESS_KEY", "$HOST_FOR_COMMON", "$HOST_FOR_FILE","$REGION_ID" $_verbose_openapi)
 EOF
     
+
     ${API^^}
 }
-
 
 
 main "$@"

@@ -5,6 +5,7 @@
 # Please contact dezhaoli if you have any questions.
 ###########################################################
 
+
 __d_init()
 {
     [[ -n "$XARGPARES_VERSION" ]] || . "$(which xargparse)"
@@ -15,9 +16,7 @@ __d_init()
 
     XFORMAT_IS_PRINT_TIME=true
     XARGPARES_SMART_MODE=true
-
 }
-
 
 
 
@@ -29,34 +28,23 @@ __d_add_path()
 	fi
 }
 
-__d_nested_source()
+#remove all bash_completion, regenerate them
+__d_generate_bash_completion()
 {
-    if [[ -n "${D_INHERIT_CLASS}" ]];then
-        local tmp="$D_INHERIT_CLASS"
-        unset D_INHERIT_CLASS D_IS_INHERIT
-        source "$tmp"
-    fi
+    echo "$(basename "$0") $XARGPARES_VERSION"
+    while read line; do
+        rm -fr "$XARGPARES_COMPLETE_DIR/$line"
+        if [[ "$line" != "d" ]]; then
+            "$line"  >/dev/null 2>&1
+        fi
+    done < <( ls -1 "$XARGPARES_COMPLETE_DIR" )
 }
 
-# skip __d_init util D_INHERIT_CLASS is define
 
-if ${D_IS_INHERIT:-false}; then
-    __d_nested_source
-else
-    __d_init
-fi
+__d_init
 
-
-
-# when call ourself, remove all bash_completion, recreate it by calling the new script
+# call ourself
 if [[ ! "$0" =~ ^-.* && "$(basename "$0")" == "$(basename "$BASH_SOURCE")" ]]; then 
-    echo "$(basename "$0") $XARGPARES_VERSION"
-    dir=~/".xargparse/bash_completion.d"
-    while read line; do
-    	rm -fr "$dir/$line"
-    	if [[ "$line" != "d" ]]; then
-    		"$line"  >/dev/null 2>&1
-    	fi
-    done < <( ls -1 "$dir" )
+    __d_generate_bash_completion
     exit 0
 fi
