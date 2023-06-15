@@ -187,7 +187,7 @@ function cfg(){
 }
 
 
-#@ alia=pl 
+#@ alias=pl 
 function productidlist()
 {
     local is_online=true            #@ --cfg; action=store_false
@@ -214,7 +214,7 @@ EOF
     fi
 
 }
-#@ alia=vl
+#@ alias=vl
 function versionlist()
 {
     local productid=                        #@
@@ -233,7 +233,7 @@ EOF
 }
 
 
-#@ alia=
+#@ alias=
 function newpuffer()
 {
     local zip_file=                         #@ -f; --file;
@@ -267,7 +267,7 @@ EOF
     return $?
 }
 
-#@ alia=cv
+#@ alias=cv
 function cpversion()
 {
     local gray_rule_id=                     #@ --gray-rule-id
@@ -305,7 +305,7 @@ EOF
     return $?
 }
 
-#@ alia=dv
+#@ alias=dv
 function delete-version()
 {
     local productid=                        #@
@@ -323,7 +323,7 @@ EOF
     return $? 
 }
 
-#@ alia=pp
+#@ alias=pp
 function prepublish()
 {
     local productid=                        #@
@@ -339,7 +339,7 @@ EOF
     return $? 
 }
 
-#@ alia=p
+#@ alias=p
 function publish()
 {
     local productid=                        #@
@@ -419,7 +419,7 @@ EOF
     return $? 
 }
 
-#@ alia=v
+#@ alias=v
 function version()
 {
     ${API}_version "$@"
@@ -465,7 +465,7 @@ EOF
 }
 
 
-#@ alia=rv group=v1
+#@ alias=rv group=v1
 function restore_version()
 {
     local productid=                        #@
@@ -483,7 +483,7 @@ EOF
     return $? 
 }
 
-#@ alia= group=v1
+#@ alias= group=v1
 function v1_newapp()
 {
     local app_file=                         #@ -f; --file;
@@ -518,7 +518,7 @@ EOF
     return $?
 }
 
-#@ alia= group=v1
+#@ alias= group=v1
 function v1_newres()
 {
     local zip_file=                         #@ -f; --file;
@@ -551,7 +551,7 @@ EOF
     python -c "$PYSCRIPT"
     return $?
 }
-#@ alia= group=v1
+#@ alias= group=v1
 function v1_upversion()
 {
     local productid=                        #@
@@ -737,7 +737,7 @@ EOF
     return $?
 }
 
-#@ alia= group=v2
+#@ alias= group=v2
 function latest_version_info()
 {
     local productid=                        #@
