@@ -40,6 +40,7 @@ class GCAPI():
         else:
             print "result::%s" % msg
 
+    # TODO: 这个方法应该过期了
     @classmethod
     def CopyVersion(self, src_productid, src_app_ver, des_productid, des_app_ver, src_res_ver=None, des_res_ver=None, pub_type=0, diff_app_num=0):
         result = self.GetAllVersion(src_productid, pub_type)
@@ -103,188 +104,273 @@ class GCAPI():
         if is_print : self.output(is_exit)
         return is_exit
             
-
-
+    ##kind:[both|app|res]
     @classmethod
-    def UpdateVersion(self, productid, version, is_app=True, available_type=None, gray_rule_id=None, customstr=None, versiondes=None, remark=None):
-        params = [
-            ("Uin", uin),
-            ("ProductID", productid),
-            ("VersionStr", version)
-        ]
-        if not available_type == None:
-            params.append(("AvailableType", available_type))
-            if available_type == 2 or available_type == 3:
-                params.append(("GrayRuleID", gray_rule_id))
+    def GetVersionInfo(self, productid, versionstr, pub_type=0, kind="both", is_print=False):
 
-        if is_app:
-            apistr="UpdateApp"
-        else:
-            apistr="UpdateRes"
-        if not customstr == None:
-            params.append(("CustomStr", customstr))
-        if not versiondes == None:
-            params.append(("Description", versiondes))
-        if not remark == None:
-            params.append(("Remark", remark))
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", apistr,
-            params=params, debug=verbose_openapi)
+        try:
+            if kind== "app" or kind== "both":
+                result = self.GetApp(productid, versionstr)
+                if is_print : self.output(json.dumps(result))
+            if kind != "app" :
+                app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
+                result = self.GetRes(productid, app_version, versionstr)
+                if is_print : self.output(json.dumps(result))
+
+        except gcloud_openapi.GCloudError, e:
+            if e._message == 'version does not exist':
+                if is_print : self.output(e._message)
+                return None
+
+        
         return result
 
+    ##kind:[both|app|res]
     @classmethod
-    def RestoreVersion(self, productid, versionstr, logid=None):
-        params = [
-            ("Uin", uin ),
-            ("ProductID", productid),
-            ("VersionStr", versionstr),
-        ]
-        if logid:
-            params.append(("LogID", logid))
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "RestoreVersion",
-            params=params, debug=verbose_openapi)
+    def PrintVersionInfo(self, productid, app_version, res_version, kind="both"):
+        try:
+            if kind== "app" or kind== "both":
+                result = self.GetApp(productid, app_version)
+                self.output(json.dumps(result))
+            if kind != "app" :
+                result = self.GetRes(productid, app_version, res_version)
+                self.output(json.dumps(result))
+
+        except gcloud_openapi.GCloudError, e:
+            if e._message == 'version does not exist':
+                self.output(e._message)
+                return None
+
+        
         return result
+        
+
 
     @classmethod
-    def GetLog(self, productid, versionstr=None, isverbose=False):
-        params = [
-            ("Uin", uin ),
-            ("ProductIDList", productid),
-        ]
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "GetLog",
-            params=params, debug=verbose_openapi)
+    def GetDiffVersions(self, productid, pre_num=1, publish_num=2):
+        diff_list = []
+        result = self.GetAllVersion(productid, 0)
+        for item in result.get('result'):
+            if len(diff_list) >= pre_num: break
+            if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
+                app_version = item.get('VersionStr')
+                diff_list.append(app_version)
+        result = self.GetAllVersion(productid, 2)
+        for item in result.get('result'):
+            if len(diff_list) >= pre_num + publish_num: break
+            if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
+                app_version = item.get('VersionStr')
+                if app_version not in diff_list:
+                    diff_list.append(app_version)
+        if len(diff_list) == 0: return None
+        return diff_list
 
-        for item in result["result"]:
-            if not versionstr:
-                print item
-            elif versionstr == item['versionstr']:
-                ttt = datetime.datetime.fromtimestamp(int(item['time'])).strftime('%Y-%m-%d %H:%M:%S')
-                if isverbose:
-                    item['time'] = ttt
-                    print item 
-                else:
-                    print "%s: %s logid[%d], [%s] " % ( ttt, versionstr, item['logid'], item['action'] )
+    @classmethod
+    def GetNewestVersion(self, productid, formatstr=None, is_print=False):
+        result = self.GetAllVersion(productid, 0)
+        vvv=[]
+        if formatstr:
+            v=formatstr.split('.')[:3]
+            for x in xrange(0,2):
+                if "X" not in str(v[x]):
+                    vvv.append(v[x])
+            # print vvv
+        for app_item in result["result"]:
 
-            
+            if len(app_item['ResLine'])> 0:
+              versionstr = app_item['ResLine'][0]['VersionStr']
+            else:
+              versionstr = app_item['VersionStr']
+            # print versionstr
+            if len(vvv) > 0:
+                vv=versionstr.split('.')[:len(vvv)]
+                math = True
+                for x in xrange(0,len(vvv)):
+                    if vv[x] != vvv[x]:
+                        math = False
+                        break
+                if math:
+                    if is_print : self.output(versionstr)
+                    return versionstr
+            else:
+                if is_print : self.output(versionstr)
+                return versionstr
+
+
+    @classmethod
+    def DeleteVersion(self, productid, versionstr):
+        if self.GetVersionInfo(productid, versionstr, kind="res"):
+            result = self.DeleteRes(productid, versionstr)
+
+        app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
+        app_item = self.GetVersionInfo(productid, versionstr, kind="app")
+        if app_item and not app_item.has_key( 'ResLine' ):
+            result = self.DeleteApp(productid, versionstr)
         return result
+        
+
+    # TODO: 这个方法应该过期了
+    @classmethod
+    def DeleteBatch(self, productid, min_res_version, max_res_version):
+        # params = [
+        #     ("Uin", uin),
+        #     ("ProductID", productid),
+        #     ("MiniVersionStr", min_res_version),
+        #     ("MaxVersionStr", max_res_version)
+        # ]
+
+        # result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+        #     accessid, accesskey, "update", "DeleteBatch",
+        #     params=params, debug=verbose_openapi)
+
+        # return result
+        
+    # TODO: 这个方法应该过期了
+    @classmethod
+    def CleanOldAppVersion(self, productid, remain_num_available=60, pub_type=0):
+        result = self.GetAllVersion(productid, pub_type)
+
+        # app_list = result["result"]
+        # result=None
+        # res_to_del_list = []
+        # if len(app_list)>0:
+        #     for app_item in app_list:
+        #         if app_item.has_key( 'ResLine' ) and self.GetVersionInfo(productid,app_item['VersionStr'],pub_type,'res'):
+        #             res_list=app_item['ResLine']
+        #             while len(res_list) > remain_num_available:
+        #                 res_item = res_list[-1]
+        #                 print 'total (%d) available res versions. exceeded %d. pedding del %s' % (len(res_list), remain_num_available, res_item['VersionStr'])
+        #                 del res_list[-1]
+        #                 res_to_del_list.append(res_item['VersionStr'])
+        #             break
+        #         else:
+        #             # we should delete the app_item whose resline are empty
+        #             result = self.DeleteApp(productid, app_item['VersionStr'])
+        # if len(res_to_del_list) > 1:
+        #     result = self.DeleteBatch(productid, res_to_del_list[0], res_to_del_list[-1])
+        # elif len(res_to_del_list) == 1:
+        #     result = self.DeleteVersion(productid,res_to_del_list[0])
+        # if result and result[u'code'] == 0:
+        #     self.PrePublish(productid)
 
     @classmethod
-    def NewUploadTask(self, productid, versionstr, versiontype, diff_list=None):
-        # center/NewUploadTask
-        params = [
-            ("Uin", uin),
-            ("ProductID", productid),
-            ("VersionStr", versionstr),
-            ("VersionType", versiontype),
-            ("RegionID", regionid),
-        ]
-        if diff_list and len(diff_list) > 0:
-            params.append(('DiffVersions', '|'.join(diff_list)))
+    def GetVersionList(self, productid, pub_type=0, is_puffer=False):
+        result = self.GetAllVersion(productid, pub_type)
 
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "center", "NewUploadTask",
-            params=params, debug=verbose_openapi)
-
-        if verbose : print ("upload task created...")
-        return result
-
-    def NewWorldListRule(self):
-        params = [
-            ("Uin", uin),
-            ("GrayRuleName", "world_list_rule"),
-        ]
-
-        data = [
-            {
-                "id": 1,
-                "world": "world1",
-            },
-            {
-                "id": 2,
-                "world": "world2",
-            }
-        ]
-        data = json.dumps(data)
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "NewWorldListRule",
-            params=params, data=data)
-        return result["result"]["GrayRuleID"]
-
-    def NewUserListRule(self):
-        params = [
-            ("Uin", uin),
-            ("GrayRuleName", "user_list_rule"),
-        ]
-
-        data = [
-            "user1",
-            "user2",
-            "user3",
-        ]
-        data = json.dumps(data)
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "NewUserListRule",
-            params=params, data=data)
-        return result["result"]["GrayRuleID"]
-
+        for app_item in result["result"]:
+          print app_item['VersionStr']
+          if app_item.has_key( 'ResLine' ):
+              for res_item in app_item['ResLine']:
+                print "  %s" % res_item['VersionStr']
+                if res_item['VersionStr'] == app_item['VersionStr']:
+                    break
     @classmethod
-    def NewProduct(self):
-        # update/NewProduct
+    def GetLatestVersionInfo(self, productid, pub_type=0,kind="res"):
+        result = self.GetAllVersion(productid, pub_type)
+
+        for app_item in result["result"]:
+          if app_item.has_key( 'ResLine' ):
+              for res_item in app_item['ResLine']:
+                self.PrintVersionInfo(productid, app_item['VersionStr'], res_item['VersionStr'], kind )
+                return
+
+
+
+#######################################################################################################################################
+########################  QTS  ########################################################################################################
+#######################################################################################################################################
+
+    # is_noapp 是否需要上传 App 包，可选值 0/1, 缺省为 0. 用于 iOS 或 Google Play Store 等渠道，因为这 些渠道不支持游戏内更新 App
+    # is_disabledowngrade 是否禁止版本回退，可选值 0/1, 缺省为 0. 由 于版本回退可能产生难以预测的问题，通过指定 该选项，当高版本检查更新要回退到低版本是， version_server 返回特殊标识禁止回退升级。
+    @classmethod
+    def NewProduct(self, productname, customcfg, is_noapp=0, is_disabledowngrade=0):
         params = [
             ("Uin", uin),
-            ("ProductName", "test_Init"),
+            ("ProductName", productname),
+            ("CustomCfg", customcfg),
+            ("NoAppPkg", is_noapp),
+            ("DisableDowngrade", is_disabledowngrade),
         ]
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
             accessid, accesskey, "update", "NewProduct",
             params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
+        return result
 
-        productid = result["result"]["ProductID"]
-        return productid
 
-    def get_md5(self, filesvr_path):
+    @classmethod
+    def GetProduct(self, productid, pub_type=0):
         params = [
-            ("filepath", filesvr_path)
+            ("ProductID", productid),
+            ("PubType", pub_type),
         ]
-        result = gcloud_openapi.request_gcloud_api(host4file, gameid, 
-            accessid, accesskey, "file", "Md5", 
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "GetProduct",
             params=params, debug=verbose_openapi)
-
-        return result["result"]["md5"]
+        self.output(json.dumps(result))
+        return result
 
 
     @classmethod
-    def GetUploadHistory(self, productid, versionstr):
-        version_type = 0 if versionstr.split('.')[3] == '0' else 1
-        
-        state_type=0
-        page_size=100
-        for page_num in xrange(1,20):
-            params = [
-                ("VersionType", version_type),
-                ("PageNum", page_num),
-                ("StateType", state_type),
-                ("PageSize", page_size),
-            ]
-            result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-                accessid, accesskey, "center", "GetUploadHistoryList",
-                params=params, debug=verbose_openapi)
-            for item in result["result"]:
-                if item['ProductID'] == productid and item['VersionStr'] == versionstr :
-                    print json.dumps(item)
-                    return item
-
-
-######################## QTS 
-    @classmethod
-    def GetAllProduct(self):
+    def GetAllProduct(self, pub_type=0):
         params = [
-            ("PubType", 0),
+            ("PubType", pub_type),
         ]
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
             accessid, accesskey, "update", "GetAllProduct",
             params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
+        return result
+
+    @classmethod
+    def UpdateProduct(self, productid, productname):
+        params = [
+            ("Uin", uin),
+            ("ProductID", productid),
+            ("ProductName", productname),
+        ]
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "UpdateProduct",
+            params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
+        return result
+
+    @classmethod
+    def DeleteProduct(self, productid):
+        params = [
+            ("Uin", uin),
+            ("ProductID", productid),
+        ]
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "DeleteProduct",
+            params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
+        return result
+
+
+    @classmethod
+    def WipeProduct(self, productid):
+        params = [
+            ("Uin", uin),
+            ("ProductID", productid),
+        ]
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "WipeProduct",
+            params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
+        return result
+
+    @classmethod
+    def CloneProduct(self, src_productid, des_productid):
+        params = [
+            ("Uin", uin),
+            ("SrcProductID", src_productid),
+            ("DestProductID", des_productid),
+        ]
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "CloneProduct",
+            params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
         return result
 
 
@@ -482,12 +568,12 @@ class GCAPI():
 
 
     @classmethod
-    def GetRes(self, productid, app_version, res_version):
+    def GetRes(self, productid, app_version, res_version, pub_type=0):
         params = [
             ("ProductID", productid),
             ("VersionStr", res_version),
             ("AppVersionStr", app_version),
-            ("PubType", 0)
+            ("PubType", pub_type)
         ]
 
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
@@ -508,16 +594,17 @@ class GCAPI():
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
             accessid, accesskey, "update", "GetResPkg",
             params=params, debug=verbose_openapi)
+        self.output(json.dumps(result))
 
         return result
         
 
     # pub_type: 0 未发布 2 正式发布
     @classmethod
-    def GetAllVersion(self, productid, pub_type):
+    def GetAllVersion(self, productid, pub_type=0):
         params = [
             ("ProductID", productid),
-            ("PubType", 0)
+            ("PubType", pub_type)
         ]
 
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
@@ -525,27 +612,6 @@ class GCAPI():
             params=params, debug=verbose_openapi)
 
         return result
-
-    @classmethod
-    def GetVersionList(self, productid, pub_type=0, is_puffer=False):
-        result = self.GetAllVersion(productid, pub_type)
-
-        for app_item in result["result"]:
-          print app_item['VersionStr']
-          if app_item.has_key( 'ResLine' ):
-              for res_item in app_item['ResLine']:
-                print "  %s" % res_item['VersionStr']
-                if res_item['VersionStr'] == app_item['VersionStr']:
-                    break
-    @classmethod
-    def GetLatestVersionInfo(self, productid, pub_type=0,kind="res"):
-        result = self.GetAllVersion(productid, pub_type)
-
-        for app_item in result["result"]:
-          if app_item.has_key( 'ResLine' ):
-              for res_item in app_item['ResLine']:
-                self.PrintVersionInfo(productid, app_item['VersionStr'], res_item['VersionStr'], kind )
-                return
 
     @classmethod
     def UpdateApp(self, productid, app_version, category=None, gray_rule_id=None, upgrade_type=None, customstr=None, versiondes=None, remark=None):
@@ -707,154 +773,17 @@ class GCAPI():
         if verbose : print ("upload task started...")
         return result
 
-    ##kind:[both|app|res]
-    @classmethod
-    def GetVersionInfo(self, productid, versionstr, pub_type=0, kind="both", is_print=False):
-
-        try:
-            if kind== "app" or kind== "both":
-                result = self.GetApp(productid, versionstr)
-                if is_print : self.output(json.dumps(result))
-            if kind != "app" :
-                app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
-                result = self.GetRes(productid, app_version, versionstr)
-                if is_print : self.output(json.dumps(result))
-
-        except gcloud_openapi.GCloudError, e:
-            if e._message == 'version does not exist':
-                if is_print : self.output(e._message)
-                return None
-
-        
-        return result
-
-    ##kind:[both|app|res]
-    @classmethod
-    def PrintVersionInfo(self, productid, app_version, res_version, kind="both"):
-
-        try:
-            if kind== "app" or kind== "both":
-                result = self.GetApp(productid, app_version)
-                self.output(json.dumps(result))
-            if kind != "app" :
-                result = self.GetRes(productid, app_version, res_version)
-                self.output(json.dumps(result))
-
-        except gcloud_openapi.GCloudError, e:
-            if e._message == 'version does not exist':
-                self.output(e._message)
-                return None
-
-        
-        return result
-        
 
 
-    @classmethod
-    def GetDiffVersions(self, productid, pre_num=1, publish_num=2):
-        diff_list = []
-        result = self.GetAllVersion(productid, 0)
-        for item in result.get('result'):
-            if len(diff_list) >= pre_num: break
-            if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
-                app_version = item.get('VersionStr')
-                diff_list.append(app_version)
-        result = self.GetAllVersion(productid, 2)
-        for item in result.get('result'):
-            if len(diff_list) >= pre_num + publish_num: break
-            if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
-                app_version = item.get('VersionStr')
-                if app_version not in diff_list:
-                    diff_list.append(app_version)
-        if len(diff_list) == 0: return None
-        return diff_list
-
-    @classmethod
-    def GetNewestVersion(self, productid, formatstr=None, is_print=False):
-        result = self.GetAllVersion(productid, 0)
-        vvv=[]
-        if formatstr:
-            v=formatstr.split('.')[:3]
-            for x in xrange(0,2):
-                if "X" not in str(v[x]):
-                    vvv.append(v[x])
-            # print vvv
-        for app_item in result["result"]:
-
-            if len(app_item['ResLine'])> 0:
-              versionstr = app_item['ResLine'][0]['VersionStr']
-            else:
-              versionstr = app_item['VersionStr']
-            # print versionstr
-            if len(vvv) > 0:
-                vv=versionstr.split('.')[:len(vvv)]
-                math = True
-                for x in xrange(0,len(vvv)):
-                    if vv[x] != vvv[x]:
-                        math = False
-                        break
-                if math:
-                    if is_print : self.output(versionstr)
-                    return versionstr
-            else:
-                if is_print : self.output(versionstr)
-                return versionstr
 
 
-    @classmethod
-    def DeleteVersion(self, productid, versionstr):
-        if self.GetVersionInfo(productid, versionstr, kind="res"):
-            result = self.DeleteRes(productid, versionstr)
 
-        app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
-        app_item = self.GetVersionInfo(productid, versionstr, kind="app")
-        if app_item and not app_item.has_key( 'ResLine' ):
-            result = self.DeleteApp(productid, versionstr)
-        return result
-        
-    @classmethod
-    def DeleteBatch(self, productid, min_res_version, max_res_version):
-        params = [
-            ("Uin", uin),
-            ("ProductID", productid),
-            ("MiniVersionStr", min_res_version),
-            ("MaxVersionStr", max_res_version)
-        ]
 
-        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
-            accessid, accesskey, "update", "DeleteBatch",
-            params=params, debug=verbose_openapi)
 
-        return result
-        
 
-    @classmethod
-    def CleanOldAppVersion(self, productid, remain_num_available=60, pub_type=0):
-        result = self.GetAllVersion(productid, pub_type)
-
-        app_list = result["result"]
-        result=None
-        res_to_del_list = []
-        if len(app_list)>0:
-            for app_item in app_list:
-                if app_item.has_key( 'ResLine' ) and self.GetVersionInfo(productid,app_item['VersionStr'],pub_type,'res'):
-                    res_list=app_item['ResLine']
-                    while len(res_list) > remain_num_available:
-                        res_item = res_list[-1]
-                        print 'total (%d) available res versions. exceeded %d. pedding del %s' % (len(res_list), remain_num_available, res_item['VersionStr'])
-                        del res_list[-1]
-                        res_to_del_list.append(res_item['VersionStr'])
-                    break
-                else:
-                    # we should delete the app_item whose resline are empty
-                    result = self.DeleteApp(productid, app_item['VersionStr'])
-        if len(res_to_del_list) > 1:
-            result = self.DeleteBatch(productid, res_to_del_list[0], res_to_del_list[-1])
-        elif len(res_to_del_list) == 1:
-            result = self.DeleteVersion(productid,res_to_del_list[0])
-        if result and result[u'code'] == 0:
-            self.PrePublish(productid)
-
+#######################################################################################################################################
+#######################################################################################################################################
+#######################################################################################################################################
 
 
 

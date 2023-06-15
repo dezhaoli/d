@@ -38,12 +38,25 @@ EOF
 
 pythonc()
 {
-    py_script="$1"
-    log=$(mktemp)
-    trap "rm -f $log" EXIT
-    python -c "$py_script" | tee -i $log 1>&2 
+    local py_script="$1"
+    local log=$(mktemp)
+    local log_err=$(mktemp)
+    trap "rm -f $log $log_err" EXIT
+    python -c "$py_script" 1> $log 2>$log_err
     EXIT_CODE=${PIPESTATUS[0]}
-    cat $log | sed -n "/^$MARK:/{s///;p;}"
+    if ((EXIT_CODE==0)); then
+        cat $log | sed -n "/^$MARK:/{s///;p;}" | jq -e . >/dev/null 2>&1
+
+        if ((${PIPESTATUS[2]}==0)); then
+            cat $log | sed -n "/^$MARK:/{s///;p;}" | jq .
+        else
+            cat $log
+        fi
+        
+    else
+        cat $log_err
+    fi
+    
     
     return $EXIT_CODE 
 }
@@ -177,8 +190,29 @@ function cfg(){
 #@ alia=pl 
 function productidlist()
 {
-    jq ".$area | {area, dolphin} | del(.dolphin.download, .dolphin.\"pre_download\") " "$config_file"
-    jq ".$area | {area, puffer} | del(.puffer.download, .puffer.\"pre_download\") " "$config_file"
+    local is_online=true            #@ --cfg; action=store_false
+    local pub_type=0                #@ --pubtype; choices=( 0 1 2 ); help='dolphin:0 unpublish,1 prepublic, 2 public ; puffer:0 ,1'
+    local is_verbose=False          #@ -v; --is-verbose; action=store_True
+    ____ "$@"
+
+    if $is_online; then
+        read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+gc.GetAllProduct($pub_type )
+
+EOF
+        if $is_verbose; then
+            python -c "$PYSCRIPT" | jq .
+        else
+            python -c "$PYSCRIPT" | jq '.result[]| { "id": .ProductID, "name": .ProductName} '
+        fi
+        
+        return $? 
+    else
+        jq ".$area | {area, dolphin} | del(.dolphin.download, .dolphin.\"pre_download\") " "$config_file"
+        jq ".$area | {area, puffer} | del(.puffer.download, .puffer.\"pre_download\") " "$config_file"
+    fi
+
 }
 #@ alia=vl
 function versionlist()
@@ -426,7 +460,7 @@ $PYSCRIPT_GC_INIT
 gc.GetVersionInfo($productid, "$versionstr", $pub_type, is_print=True $is_puffer )
 
 EOF
-    pythonc "$PYSCRIPT" | jq .
+    pythonc "$PYSCRIPT" 
     return $? 
 }
 
@@ -584,7 +618,7 @@ function v2_version()
 {
     local productid=                        #@
     local app_version=                      #@
-    local res_version=                      #@
+    local res_version=                      #@ 
     local kind=both                         #@ choices=( both app res );
     ____ "$@"
 
@@ -593,7 +627,7 @@ $PYSCRIPT_GC_INIT
 gc.PrintVersionInfo($productid, "$app_version", "$res_version", kind="$kind" )
 
 EOF
-    pythonc "$PYSCRIPT" | jq .
+    pythonc "$PYSCRIPT" 
     return $? 
 }
 
@@ -715,23 +749,24 @@ $PYSCRIPT_GC_INIT
 gc.GetLatestVersionInfo($productid, kind="$kind")
 
 EOF
-    pythonc "$PYSCRIPT" | jq .
+    pythonc "$PYSCRIPT"
     return $? 
 }
 
 
-v2_getrespkg()
+#@ group=v2
+function v2_getrespkg()
 {
-    productid=${1:?$ERR}
-    res_version=${2:?$ERR}
+    local productid=                       #@
+    local res_version=                     #@ 
+    ____ "$@"
 
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
 
-result = gc.GetResPkg($productid,"$res_version")
-print "$MARK:%s" % json.dumps(result)
+gc.GetResPkg($productid,"$res_version")
 EOF
-    pythonc "$PYSCRIPT" | jq .
+    pythonc "$PYSCRIPT"
     return $? 
 }
 
@@ -745,13 +780,13 @@ EOF
 function xgcloud-main-ex()
 {
     local is_debug=false                    #@ --debug; action=store_true
+    local uin=""                            #@ --uin;
     area=""                                 #@ --gc-area; help='same as export AREA'
     config_file=""                          #@ --config-file;
-    local uin=""                            #@ --uin;
     is_puffer=false                         #@ --puffer; action=store_true
     ____ "$@"
 
-    cd "$(dirname "$0")"
+    cd "$(dirname "${BASH_SOURCE[0]}")"
 
     MARK="result:"
     : ${CONFIG_FILE:="./gcloud_configs.xml"}
@@ -772,7 +807,9 @@ function xgcloud-main-ex()
     # fi
 
     [[ -n "$area" ]] || die "\$AREA should be set before $(basename "$0") call"
-    [[ -f "$config_file" ]] || die "Config file [$config_file] not found. "
+    [[ -f "$config_file" ]] || die "Config file [$config_file] could not be found. "
+
+    ERR="argument error"
 
     read -r -d$'\1'\
          GAME_ID\
