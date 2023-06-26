@@ -58,7 +58,7 @@ function mark()
 
 }
 
-#@ alia='lr'; help='get last-changed-revision from svn'
+#@ alias='lr'; help='get last-changed-revision from svn'
 function get-last-changed-revision()
 {
 

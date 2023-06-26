@@ -19,7 +19,7 @@ _svn(){
 }
 
 
-# #@ alia="" help="ignore files. files are seperated by ":", e.g. f1:f2"
+# #@ alias="" help="ignore files. files are seperated by ":", e.g. f1:f2"
 # function ignore(){
 # 	for f; do
 # 		d=`dirname "$f"`
@@ -35,7 +35,7 @@ _svn(){
 # }
 
 
-#@ alia="" help="filter [?] files"
+#@ alias="" help="filter [?] files"
 function add()
 {
 	# _svn st | grep "^?" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r _svn add
@@ -43,26 +43,26 @@ function add()
 }
 
 
-#@ alia="" help="filter [!] files"
+#@ alias="" help="filter [!] files"
 function del()
 {
 	# _svn st | grep "^!" | sed 's/^.\{8\}//' |tr '\n' '\0'| xargs -0r _svn del
 	_svn st | grep "^!" | sed 's/^.\{8\}//' |while read f ;do _svn del "$f"@ ; done
 }
 
-#@ alia="" help=""
+#@ alias="" help=""
 function co()
 {
 	_svn co "$url" "$ws" -r "$revision"
 }
 
-#@ alia="" help=""
+#@ alias="" help=""
 function ci()
 {
 	_svn commit .  -m "$message"
 }
 
-#@ alia="" help="filter [ADM] files"
+#@ alias="" help="filter [ADM] files"
 function batch-ci()
 {
 	local num=1000		#@ 
@@ -92,30 +92,30 @@ function batch-ci()
 }
 
 
-#@ alia="up" help="update with theirs-full"
+#@ alias="up" help=""
 function update()
 {
 	_svn update . --depth infinity --accept theirs-full --force -r "$revision"
 }
 
-#@ alia="" help=""
+#@ alias="" help=""
 function cleanup()
 {
 	_svn cleanup . 
 }
 
-#@ alia="" help="filter [M] files"
+#@ alias="" help="filter [M] files"
 function revert_modify()
 {
 	_svn st | grep "^M" | sed 's/^.\{8\}//' |while read f ;do _svn revert "$f"@ ; done
 }
 
-#@ alia="" help="filter [ADM] files"
+#@ alias="" help="filter [ADM] files"
 function revert_all()
 {
 	_svn revert -R .
 }
-#@ alia="" help=""
+#@ alias="" help=""
 function rm_unversioned()
 {
 	local dir="${1:-.}"							#@
@@ -123,7 +123,7 @@ function rm_unversioned()
 }
 
 
-#@ alia="" help="filter [X] files, then revert_all and rm_unversioned and up"
+#@ alias="" help="filter [X] files, then revert_all and rm_unversioned and up"
 revert_external(){
 	while read dir
 	do
@@ -135,7 +135,7 @@ revert_external(){
 
 
 
-#@ alia="" help="filter [?] files, and ignore them"
+#@ alias="" help="filter [?] files, and ignore them"
 function ignore_new_file()
 {
 	while read f; do
@@ -152,13 +152,13 @@ function ignore_new_file()
 }
 
 
-#@ alia="sw" help=""
+#@ alias="sw" help=""
 function switch()
 {
 	_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf"
 }
 
-#@ alia="sw-ig-e" help=""
+#@ alias="sw-ig-e" help=""
 function switch_ignore_externals()
 {
 	_svn switch --ignore-ancestry "$url" . -r "$revision" --accept "tf" --ignore-externals
