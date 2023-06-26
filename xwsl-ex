@@ -43,6 +43,7 @@ EOF
 	}
 
 
+	#@ help='create a wrapper shell for bat, auto parse wls path to window path'
 	function create-bat-wrapper()
 	{
 		local file=$1
@@ -65,13 +66,14 @@ EOF
 
 	}
 
+	#@ help='cmd bat ( wsl path -> window path )'
 	function bat()
 	{
 		local args=()
 		if [[ "$1" =~ .bat$ ]]; then
-			args+=("$(wslpath -w "$1" )")
+			args+=("$(wslpath -m "$1" )")
 		else
-			args+=("$(wslpath -w "${1}.bat" )")
+			args+=("$(wslpath -m "${1}.bat" )")
 		fi
 		
 		shift
@@ -82,7 +84,7 @@ EOF
 				local lhs=${item%%=*}
 				local rhs=${item##*=}
 				if [[ -e "$rhs" ]]; then
-					args+=( "${lhs}=$(wslpath -w "$rhs" )" )
+					args+=( "${lhs}=$(wslpath -m "$rhs" )" )
 					continue
 				fi
 			fi
@@ -92,11 +94,28 @@ EOF
 		cmd.exe /c "${args[@]}"
 	}
 
+
+	function cmd()
+	{
+		to_win_path "$@"
+		cmd.exe /c "${args[@]}"
+	}
+
 	function to_win_path()
 	{
 		args=()
 		for i in "$@"; do
-			if [[ -e "$i" ]]; then
+			# handle --xx=/mnt/x/xx
+			if [[ "$i" =~ .*=.* ]]; then
+				local lhs=${i%%=*}
+				local rhs=${i##*=}
+				if [[ -e "$rhs" ]]; then
+					args+=( "${lhs}=$(wslpath -m "$rhs" )" )
+				else
+					args+=( "$i"  )
+				fi
+			# handle path argument
+			elif [[ -e "$i" ]]; then
 				args+=( "$(_wslpath -am "$i" )"  )
 			else
 				args+=( "$i"  )
@@ -106,6 +125,8 @@ EOF
 		echo "${args[*]}"
 	}
 
+
+	#@ help='e.g. winpath XX ( XX=/mnt/c/xx -> XX=C:/xx )'
 	function winpath() { 
 		while (($#>0)); do
 			local p=$1 

@@ -92,7 +92,7 @@ function batch-ci()
 }
 
 
-#@ alia="up" help=""
+#@ alia="up" help="update with theirs-full"
 function update()
 {
 	_svn update . --depth infinity --accept theirs-full --force -r "$revision"
