@@ -116,7 +116,7 @@ EOF
 				fi
 			# handle path argument
 			elif [[ -e "$i" ]]; then
-				args+=( "$(_wslpath -am "$i" )"  )
+				args+=( "$(wslpath -m "$i" )"  )
 			else
 				args+=( "$i"  )
 			fi
@@ -137,6 +137,7 @@ EOF
 
 	}
 
+	#@ help='( wsl path -> window path ) and handle the path which not exist'
 	function _wslpath()
 	{
 		local XTRACE
