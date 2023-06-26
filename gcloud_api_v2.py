@@ -210,8 +210,8 @@ class GCAPI():
         
 
     # TODO: 这个方法应该过期了
-    @classmethod
-    def DeleteBatch(self, productid, min_res_version, max_res_version):
+    # @classmethod
+    # def DeleteBatch(self, productid, min_res_version, max_res_version):
         # params = [
         #     ("Uin", uin),
         #     ("ProductID", productid),

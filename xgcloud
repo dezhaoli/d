@@ -202,9 +202,9 @@ gc.GetAllProduct($pub_type )
 
 EOF
         if $is_verbose; then
-            python -c "$PYSCRIPT" | jq .
+            pythonc "$PYSCRIPT" 
         else
-            python -c "$PYSCRIPT" | jq '.result[]| { "id": .ProductID, "name": .ProductName} '
+            pythonc "$PYSCRIPT" | jq '.result[]| { "id": .ProductID, "name": .ProductName} '
         fi
         
         return $? 
