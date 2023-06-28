@@ -84,30 +84,18 @@ function artifactory-search()
     api_url="https://bkrepo.woa.com/web/repository/api/node/search"
 
     if [[ "$l_artifactory_type" == PIPELINE ]]; then
-        local repoName=pipeline
+        local repo_name=pipeline
     else
-        local repoName=custom
+        local repo_name=custom
     fi
     
-
-#     read -d '' post_data <<EOF
-# {   
-#     "page":{"pageNumber":1,"pageSize":20},
-#     "sort":{"properties":["folder","lastModifiedDate"],"direction":"DESC"},
-#     "rule":{"rules":[
-#                 {"field":"projectId","value":"aov","operation":"EQ"},
-#                 {"field":"repoName","value":"$repoName","operation":"EQ"},
-#                 {"field":"path","value":"/common/cfg/","operation":"EQ"}],
-#             "relation":"AND"}
-# }
-# EOF
     read -d '' post_data <<EOF
 {
     "page":{"pageNumber":1,"pageSize":20},
     "sort":{"properties":["folder","lastModifiedDate"],"direction":"DESC"},
     "rule":{"rules":[
-                {"field":"projectId","value":"aov","operation":"EQ"},
-                {"field":"repoName","value":"$repoName","operation":"EQ"},
+                {"field":"projectId","value":"$l_project_id","operation":"EQ"},
+                {"field":"repo_name","value":"$repo_name","operation":"EQ"},
                 {"field":"name","value":"*$file_name*","operation":"MATCH"}],
             "relation":"AND"}
 }
@@ -199,7 +187,7 @@ function main-ex()
 {
     l_artifactory_type="PIPELINE"                                     #@ --artifactory-type; choices=( PIPELINE CUSTOM_DIR ); help='set artifactory type'
     l_env_type="prod"                                                 #@ --env-type; choices=( prod test ); help='set env type'
-    l_project_id="aov"                                                #@ --project-id; help='set project id'
+    l_project_id=""                                                   #@ --project-id; help='set project id'
     l_access_token=                                                   #@ --token; help='set access_token'
     l_bk_ticket=                                                      #@ --ticket; help='set bk_ticket'
     ____ "$@"
