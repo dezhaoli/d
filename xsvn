@@ -204,7 +204,7 @@ function _main(){
 
 	for cmd in "${cmds[@]}"
 	do
-		xargparse_real_subcmd cmd
+		_xargparse_real_subcmd cmd
 		$cmd
 		(( $? != 0 )) && error $cmd
 	done
