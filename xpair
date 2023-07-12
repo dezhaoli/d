@@ -27,14 +27,12 @@ _prepare()
 }
 
 #@
-function set()
+function _set()
 {
     local key=                                        #@
     local value=                                      #@
     local dbfile="$DEFAULT_KEY_VALUE_PAIR_FILE"       #@ -f;--file; help='the file to which save the key-value pair'
     ____ "$@"
-
-
 
     # [[ -r "$dbfile" ]] && dbfile="$(realpath "$dbfile")"
     _prepare "$dbfile"
@@ -44,7 +42,7 @@ function set()
     echo "$key=$value" >> "$dbfile"
 }
 #@
-function get()
+function _get()
 {
     local key=                                        #@
     local dbfile="$DEFAULT_KEY_VALUE_PAIR_FILE"       #@ -f;--file; help='the file to which save the key-value pair'
@@ -53,7 +51,8 @@ function get()
     # [[ -r "$dbfile" ]] && dbfile="$(realpath "$dbfile")"
     _prepare "$dbfile"
     _lock "$dbfile"
-    echo $(sed -nE "/^[[:space:]]*$key=(.*)/{s//\1/;p;q;}" "$dbfile" )
+    
+    sed -nE "/^[[:space:]]*$key=(.*)/{s//\1/;p;q;}" "$dbfile"
 }
 
-main "$@"
+main "_$@"
