@@ -84,9 +84,16 @@ function progress() {
 
 #@ desc='echo a information message to stderr'
 function info() {
-  local XTRACE
-  shopt -qo xtrace && set +x && XTRACE=true
+  local XTRACE;shopt -qo xtrace && set +x && XTRACE=true
   _xformat_echo "${XFORMAT_CYAN}$* ${XFORMAT_NC}" >&2
+  ${XTRACE:-false} && set -x
+  return 0
+}
+
+#@ desc='echo a warning message to stderr'
+function warn() {
+  local XTRACE;shopt -qo xtrace && set +x && XTRACE=true
+  _xformat_echo "${XFORMAT_YELLOW}$* ${XFORMAT_NC}" >&2
   ${XTRACE:-false} && set -x
   return 0
 }
