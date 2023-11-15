@@ -45,11 +45,11 @@ archive()
 			PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_SPECIFIER" \
 			CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"  \
 			-showBuildTimingSummary \
-			$OTHER_ARGS | die "Failed to archive xcodeproj"
+			$OTHER_ARGS || die "Failed to archive xcodeproj"
 	fi
 	info "Archive Done"
 }
-export()
+export_archive()
 {
 	info "Exporting..."
 
@@ -83,12 +83,12 @@ EOF
 	xcodebuild -exportArchive \
 		-UseModernBuildSystem=1 \
 		-archivePath "$ARCHIVE_FILE" \
-		-exportPath "$OUTPUT_DIR" \
+		-exportPath "$output_dir" \
 		-exportOptionsPlist "$PLIST_FILE" $OTHER_ARGS || die "Failed to export xcarchive"
 
 	info "Export Done"
 }
-_build()
+build()
 {
 	info "Building..."
 
@@ -100,14 +100,14 @@ _build()
 			-configuration Release \
 			-sdk iphoneos \
 			-derivedDataPath "$DERIVED_DATA_DIR" \
-			_build \
+			build \
 			ONLY_ACTIVE_ARCH=NO \
 			CODE_SIGN_STYLE="Automatic" \
 			PROVISIONING_STYLE="Automatic" \
 			PROVISIONING_PROFILE="" \
 			DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
 			-showBuildTimingSummary \
-			$OTHER_ARGS  || die "Failed to _build xcodeproj"
+			$OTHER_ARGS  || die "Failed to build xcodeproj"
 	else
 		#
 		xcodebuild -project "$project"  \
@@ -116,30 +116,30 @@ _build()
 			-configuration Release \
 			-sdk iphoneos \
 			-derivedDataPath "$DERIVED_DATA_DIR" \
-			_build \
+			build \
 			CODE_SIGN_STYLE="Manual" \
 			DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
 			PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_SPECIFIER" \
 			CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"  \
 			-showBuildTimingSummary \
-			$OTHER_ARGS || die "Failed to _build xcodeproj"
+			$OTHER_ARGS || die "Failed to build xcodeproj"
 	fi
 	info "Build Done"
 }
 pack()
 {
 	info "Packing..."
-	rm -fr "$OUTPUT_DIR/Payload"
-	rm -f "$OUTPUT_DIR/Unity-iPhone.ipa"
-	mv "$DERIVED_DATA_DIR/Build/Products/Release-iphoneos" "$OUTPUT_DIR/Payload"
-	mkdir -p "$OUTPUT_DIR/release.xcarchive/dSYMs"
-	mv "$OUTPUT_DIR/Payload"/*.dSYM "$OUTPUT_DIR/release.xcarchive/dSYMs"
+	rm -fr "$output_dir/Payload"
+	rm -f "$output_dir/Unity-iPhone.ipa"
+	mv "$DERIVED_DATA_DIR/Build/Products/Release-iphoneos" "$output_dir/Payload"
+	mkdir -p "$output_dir/release.xcarchive/dSYMs"
+	mv "$output_dir/Payload"/*.dSYM "$output_dir/release.xcarchive/dSYMs"
 
 
-	(cd "$OUTPUT_DIR" ; zip -r "$OUTPUT_DIR/Unity-iPhone.ipa" Payload > /dev/null)
+	(cd "$output_dir" ; zip -r "$output_dir/Unity-iPhone.ipa" Payload > /dev/null)
 	info "Pack Done"
 }
-xpreexport()
+pre_export()
 {
 	if [[ -n "$PRE_EXPORT_PROCESS" ]] && command -v "$PRE_EXPORT_PROCESS" &>/dev/null; then
 		info "call PRE_EXPORT_PROCESS..."
@@ -148,7 +148,7 @@ xpreexport()
 	fi
 }
 
-build()
+auto()
 {
 	if $is_incremental; then
 		info "Rsyncing..."
@@ -158,25 +158,24 @@ build()
 		project="$inc_project_dir/Unity-iPhone.xcodeproj"
 
 		if [[ -e "$project" ]] && ! $is_force; then
-			rsync -n --exclude '.DS_Store'  -c -v -a -O "$PROJECT_DIR/" "$inc_project_dir/" | sed '1d;$d'| sed '$d' > "$TMP_DIR/rsync_list"
-			rsync -v --files-from="$TMP_DIR/rsync_list" "$PROJECT_DIR/" "$inc_project_dir/"
+			rsync -n --exclude '.DS_Store'  -c -v -a -O "$project_dir/" "$inc_project_dir/" | sed '1d;$d'| sed '$d' > "$TMP_DIR/rsync_list"
+			rsync -v --files-from="$TMP_DIR/rsync_list" "$project_dir/" "$inc_project_dir/"
 		else
-			rsync --exclude '.DS_Store' -c -v -a -O "$PROJECT_DIR/" "$inc_project_dir/"
+			rsync --exclude '.DS_Store' -c -v -a -O "$project_dir/" "$inc_project_dir/"
 		fi
 		info "Rsync Done"
 
-		_build
-
+		build
 		pack
 	else  #clean build
 		archive
-		xpreexport
-		export
+		pre_export
+		export_archive
 	fi
 
 }
 
-##@@ kind=label help='if PRE_EXPORT_PROCESS function defined, call it between archive and export'
+##@@ kind=label help='if PRE_EXPORT_PROCESS function defined, call it between archive and export_archive'
 ##@@ kind=label help='if OTHER_ARGS defined, use it as arguments plus to xcodebuild'
 ##@@ kind=label help='for more infomation,please contact dezhaoli.'
 
@@ -188,33 +187,33 @@ function _main(){
 	is_force=false							#@ -f; --force; action=store_true
 	is_debug=false							#@ --debug; action=store_true
 	ws=										#@ -ws;
-	cmd=									#@ cmd; choices=('build' 'pack' 'archive' 'export')
-	PROJECT_DIR=							#@ path; filter='-dir'
-	CONFIG_FILE=							#@ config;
-	OUTPUT_DIR=								#@ output; filter='-dir'
+	cmd=									#@ cmd; choices=('auto' 'build' 'pack' 'archive' 'export_archive'); help='auto switch between ( build pack) or (archive export_archive) according --incremental'
+	project_dir=							#@ xcode_project_path; filter='-dir'
+	config_file=							#@ config;
+	output_dir=								#@ output_path; filter='-dir'
 	____ "$@"
 
 
 	$is_debug && set -x
 
-	PROJECT_DIR=$(realpath "${PROJECT_DIR}")
-	CONFIG_FILE=$(realpath "${CONFIG_FILE}")
-	ws=$(eval realpath ${ws:=$PROJECT_DIR/..})
+	project_dir=$(realpath "$project_dir")
+	config_file=$(realpath "$config_file")
+	ws=$(eval realpath ${ws:=$project_dir/..})
 
 
 	TMP_DIR="$ws/tmp/incremental/xcp"
 
 	DERIVED_DATA_DIR="$TMP_DIR/DerivedData"
-	PLIST_FILE="$OUTPUT_DIR/release.plist"
-	ARCHIVE_FILE="$OUTPUT_DIR/release.xcarchive"
+	PLIST_FILE="$output_dir/release.plist"
+	ARCHIVE_FILE="$output_dir/release.xcarchive"
 
-	project="$PROJECT_DIR/Unity-iPhone.xcodeproj"
+	project="$project_dir/Unity-iPhone.xcodeproj"
 	[[ -e "$project" ]] || die "project [$project] : No such file"
-	. "$CONFIG_FILE" || die "CONFIG_FILE [$CONFIG_FILE] : No such file"
+	. "$config_file" || die "config_file [$config_file] : No such file"
 
 
-	# rm -rf "$OUTPUT_DIR"
-	mkdir -p "$OUTPUT_DIR"
+	# rm -rf "$output_dir"
+	mkdir -p "$output_dir"
 	mkdir -p "$DERIVED_DATA_DIR"
 
 	"$cmd"
