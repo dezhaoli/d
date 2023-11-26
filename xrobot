@@ -152,6 +152,7 @@ EOF
 ##@@ kind='main-ex'; help='global options:'
 function main-ex()
 {
+	# 90946002-d8fd-4910-b81f-c29f139be7c2 is test robot id
 	ID="90946002-d8fd-4910-b81f-c29f139be7c2"		#@ --id; help="robot id"
 	is_debug=false									#@ --debug; action='store_true'; help="debug script"
 	____ "$@"

@@ -1,0 +1,61 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+#mdfind -onlyin /Volumes/.../Project/Assets/ "kMDItemDisplayName = '*.prefab'c  && ( kMDItemTextContent = 'xxx' )"
+
+#@
+function find-references-in-project()
+{
+	local project_dir=""					#@
+	local asset_paths=()					#@ nargs=+; help='e.g. assets/xxx/x.prefab'
+	local onlyins=()						#@ --onlyin; action='append' ; help='default search in project_dir/Assets/'
+	local is_direct=false 					#@ --direct-only; action=store_true;
+	____ "$@"
+
+
+	[[ -d "$project_dir/Assets" ]] || die "Failed to find project's Assets path '$project_dir/Assets'"
+	cd "$project_dir"
+
+	for a in "${asset_paths[@]}"; do
+		[[ -f "$a" ]] || die "Asset not found: asset=[$a]"
+	done
+
+	local search_dirs=""
+	(( ${#onlyins} > 0 )) && search_dirs=$(printf " -onlyin $project_dir/"'%s' "${onlyins[@]}") || search_dirs="-onlyin $project_dir/Assets"
+
+
+	_findref(){
+
+		local guids=
+		while read guid ;do 
+		  guids="$guids || kMDItemTextContent = $guid"
+		done < <(grep -v 'm_Script: ' "$@" |sed -nE 's@.*guid: (.*),.*@\1@p' | sort -u )
+		guids="${guids## ||}"
+
+		[[ -n "$guids" ]] || return 0
+		echo mdfind $search_dirs "kMDItemDisplayName = '*.meta'c  && ( $guids )"
+		local paths=()
+		while read path;do
+			echo "path:${path%%.meta}"
+			if [[ "$path" =~ ".prefab.meta" || "$path" =~ ".mat.meta" ]]; then
+				paths+=("${path%%.meta}")
+			fi
+		done< <(mdfind $search_dirs "kMDItemDisplayName = '*.meta'c  && ( $guids )")
+		# echo _findref "$paths"
+		if ! $is_direct && [[ -n "$paths" ]]; then
+			_findref "${paths[@]}"
+		fi
+	}
+
+	_findref "${asset_paths[@]}" | grep '^path:' |grep -o 'Assets/.*' |sort -u
+
+}
+
+
+main "$@"

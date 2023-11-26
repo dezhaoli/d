@@ -1,0 +1,26 @@
+#!/usr/bin/env -S bash
+###########################################################
+# @Author: dezhaoli@tencent.com
+# @Date:   
+# Please contact dezhaoli if you have any questions.
+###########################################################
+. "$(which d)"
+
+
+#@
+function get_cookies()
+{
+	local domain=				#@
+	____ "$@"
+
+	cd "$(dirname "${BASH_SOURCE[0]}")"
+	
+	if $IS_WSL; then
+		python3 get-chrome-cookies-win.py "$domain"
+	else
+		python get-chrome-cookies.py "$domain"
+	fi
+
+}
+
+main "$@"
