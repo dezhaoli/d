@@ -308,14 +308,16 @@ EOF
 #@ alias=dv
 function delete-version()
 {
-    local productid=                        #@
-    local version=                          #@ 
+    local productid=                            #@
+    local app_version=                          #@ 
+    local res_version=                          #@ nargs=?;
     ____ "$@"
 
+    wrap_str res_version
 
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.DeleteVersion($productid,"$version")
+gc.DeleteVersion($productid,"$app_version" $res_version)
 gc.PrePublish($productid)
 
 EOF

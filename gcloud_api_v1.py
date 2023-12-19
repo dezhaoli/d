@@ -303,7 +303,8 @@ class GCAPI():
                 print "  %s" % res_item['VersionStr']
 
     @classmethod
-    def DeleteVersion(self, productid, versionstr):
+    def DeleteVersion(self, productid, app_version, res_version=None):
+        versionstr= res_version if res_version!=None else app_version
         params = [
             ("Uin", uin ),
             ("ProductID", productid),

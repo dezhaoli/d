@@ -92,9 +92,9 @@ class GCAPI():
     #kind:[both|app|res]
     @classmethod
     def IsVersionExist(self, productid, kind, app_ver, res_ver=None, pub_type=0, is_print=False):
-        is_app_exit = self.GetVersionInfo(productid, app_ver, pub_type, kind="app") != None
+        is_app_exit = self.GetApp(productid, app_ver) != None
         if res_ver:
-            is_res_exit = self.GetVersionInfo(productid, res_ver, pub_type, kind="res") != None
+            is_res_exit = self.GetRes(productid, app_version, res_ver) != None
         if kind == "both":
             is_exit = is_app_exit and is_res_exit
         elif kind == "res":
@@ -113,7 +113,7 @@ class GCAPI():
                 result = self.GetApp(productid, versionstr)
                 if is_print : self.output(json.dumps(result))
             if kind != "app" :
-                app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
+                # app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
                 result = self.GetRes(productid, app_version, versionstr)
                 if is_print : self.output(json.dumps(result))
 
@@ -198,15 +198,12 @@ class GCAPI():
 
 
     @classmethod
-    def DeleteVersion(self, productid, versionstr):
-        if self.GetVersionInfo(productid, versionstr, kind="res"):
-            result = self.DeleteRes(productid, versionstr)
-
-        app_version = '.'.join(versionstr.split('.')[0:3]) + '.0';
-        app_item = self.GetVersionInfo(productid, versionstr, kind="app")
-        if app_item and not app_item.has_key( 'ResLine' ):
-            result = self.DeleteApp(productid, versionstr)
-        return result
+    def DeleteVersion(self, productid, app_version, res_version=None):
+        if res_version!=None:
+            result = self.DeleteRes(productid, res_version)
+        else:
+            result = self.DeleteApp(productid, app_version)
+            return result
         
 
     # TODO: 这个方法应该过期了
@@ -230,28 +227,6 @@ class GCAPI():
     def CleanOldAppVersion(self, productid, remain_num_available=60, pub_type=0):
         result = self.GetAllVersion(productid, pub_type)
 
-        # app_list = result["result"]
-        # result=None
-        # res_to_del_list = []
-        # if len(app_list)>0:
-        #     for app_item in app_list:
-        #         if app_item.has_key( 'ResLine' ) and self.GetVersionInfo(productid,app_item['VersionStr'],pub_type,'res'):
-        #             res_list=app_item['ResLine']
-        #             while len(res_list) > remain_num_available:
-        #                 res_item = res_list[-1]
-        #                 print 'total (%d) available res versions. exceeded %d. pedding del %s' % (len(res_list), remain_num_available, res_item['VersionStr'])
-        #                 del res_list[-1]
-        #                 res_to_del_list.append(res_item['VersionStr'])
-        #             break
-        #         else:
-        #             # we should delete the app_item whose resline are empty
-        #             result = self.DeleteApp(productid, app_item['VersionStr'])
-        # if len(res_to_del_list) > 1:
-        #     result = self.DeleteBatch(productid, res_to_del_list[0], res_to_del_list[-1])
-        # elif len(res_to_del_list) == 1:
-        #     result = self.DeleteVersion(productid,res_to_del_list[0])
-        # if result and result[u'code'] == 0:
-        #     self.PrePublish(productid)
 
     @classmethod
     def GetVersionList(self, productid, pub_type=0, is_puffer=False):
