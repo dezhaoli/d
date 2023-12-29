@@ -12,8 +12,8 @@ function cs_error()
 	local log_file=					#@
 	local project_path=				#@
 	local revision=BASE				#@
+	local svn_tool=svn 				#@ --svn-cmd
 	____ "$@"
-
 
 	local i=0
 	local l=10
@@ -21,10 +21,14 @@ function cs_error()
 	while read line 
 	do
 		((i++<l)) || break
+		# trick: add a space to make regexp work!!
+		line=" ${line//\\//}"
 		echo $i. $line
-		f=$(sed -E 's/.*(Assets\/.*\.cs)\(([0-9]+),([0-9]+)\).*/\1/' <<< "$line")
-		r=$(sed -E 's/.*(Assets\/.*\.cs)\(([0-9]+),([0-9]+)\).*/\2/' <<< "$line")
-		c=$(svn blame -v -r $revision "$project_path/$f")
+
+		local regexp='.*[^a-zA-Z0-9._/]([a-zA-Z0-9._/]*\.cs)\(([0-9]+),([0-9]+)\).*'
+		f=$(sed -E "s|$regexp|\1|" <<< "${line}")
+		r=$(sed -E "s|$regexp|\2|" <<< "$line")
+		c=$($svn_tool blame -v -r $revision "$project_path/$f") || continue
 
 		n=$( ( sed -n "$r"p | awk '{print $2}' ) <<< "$c")
 		[[ -n "$n" ]] || continue
@@ -38,7 +42,7 @@ function cs_error()
 		echo $i. $line
 		f=$(sed -E 's/.*''`([^'\'']+)'\''.*/\1/' <<< "$line")
 		[[ -n "$f" ]] || continue
-		n=$(svn log -v -r  "{$(date -v-7d +%F)}:$revision" "$project_path/Assets/Scripts/" \
+		n=$($svn_tool log -v -r  "{$(date -v-7d +%F)}:$revision" "$project_path/Assets/Scripts/" \
 			| grep  '^r[0-9]\|'"$f" \
 			| pcregrep -M '^r.*\n^ *D.*'\
 			|head -n 1 \
@@ -53,7 +57,7 @@ function cs_error()
 		((i++<l)) || break
 		echo $i. $line
 		
-	done < <(grep 'error ' "$log_file" | grep -v 'because it was imported in uncompressed asset')
+	done < <(cat "$log_file" | grep -v '): error CS' | grep 'error '  | grep -v 'because it was imported in uncompressed asset')
 	
 	(( i!=0 )) && return 0 || return 1 
 }
