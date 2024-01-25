@@ -432,6 +432,13 @@ function newapp()
 {
     ${API}_newapp "$@"
 }
+
+#@ 
+function newapp_attachment()
+{
+    ${API}_newapp_attachment "$@"
+}
+
 #@ 
 function newres()
 {
@@ -636,8 +643,8 @@ EOF
 #@ group=v2
 function v2_newapp()
 {
-    local app_file=                         #@ -f; --file;
-    local app_file_link=                    #@ -l; --file-link;
+    local file_path=                        #@ -f; --file;
+    local file_link=                        #@ -l; --file-link;
     local customstr=                        #@ -c; --custom-str
     local versiondes=                       #@ -v; --version-des
     local remark=                           #@ -m; --remark
@@ -651,11 +658,16 @@ function v2_newapp()
     ____ "$@"
 
 
+    if [[ -n "$file_path" ]]; then
+        [[ -f "$file_path" ]] || die "file_path: $file_path not found."
+    else
+        [[ -n "$file_link" ]] || die "file_link: $file_link not found."
+    fi
+    
 
-    wrap_str customstr versiondes remark 
+    wrap_str customstr versiondes remark file_path file_link
     wrap_num category gray_rule_id remain_num_available
 
-    [[ -n "$app_file" && ! -f "$app_file" ]] && die "File not found."
     
     #Prevent errors in multi-line text
     customstr="${customstr//
@@ -665,7 +677,44 @@ $PYSCRIPT_GC_INIT
 
 gc.CleanOldAppVersion($productid $remain_num_available)
 diff_versions = gc.GetDiffVersions($productid,$diff_num)
-gc.NewApp($productid,"$app_version",filepath=\'$app_file\' $app_file_link $customstr $versiondes $remark $category $gray_rule_id ,diff_list=diff_versions)
+gc.NewApp($productid,"$app_version" $file_path $file_link $customstr $versiondes $remark $category $gray_rule_id ,diff_list=diff_versions )
+
+EOF
+    python -c "$PYSCRIPT"
+    return $?
+
+}
+
+#@ group=v2
+function v2_newapp_attachment()
+{
+    local file_path=                        #@ -f; --file;
+    local file_link=                        #@ -l; --file-link;
+    local category=                         #@ -t; --category
+
+    local productid=                        #@
+    local app_version=                      #@ 
+    ____ "$@"
+
+
+    if [[ -n "$file_path" ]]; then
+        [[ -f "$file_path" ]] || die "file_path: $file_path not found."
+    else
+        [[ -n "$file_link" ]] || die "file_link: $file_link not found."
+    fi
+    
+
+    wrap_str file_path file_link
+    wrap_num category 
+
+    
+    #Prevent errors in multi-line text
+    customstr="${customstr//
+/\\\\n}"
+    read -d '' PYSCRIPT <<EOF
+$PYSCRIPT_GC_INIT
+
+gc.NewAppAttachment($productid,"$app_version" $file_path $file_link $category  )
 
 EOF
     python -c "$PYSCRIPT"
@@ -676,8 +725,8 @@ EOF
 #@ group=v2
 function v2_newres()
 {
-    local zip_file=                         #@ -f; --file;
-    local zip_file_link=                    #@ -l; --file-link;
+    local file_path=                        #@ -f; --file;
+    local file_link=                        #@ -l; --file-link;
     local customstr=                        #@ -c; --custom-str
     local versiondes=                       #@ -v; --version-des
     local remark=                           #@ -m; --remark
@@ -688,10 +737,14 @@ function v2_newres()
     ____ "$@"
 
 
+    if [[ -n "$file_path" ]]; then
+        [[ -f "$file_path" ]] || die "file_path: $file_path not found."
+    else
+        [[ -n "$file_link" ]] || die "file_link: $file_link not found."
+    fi
 
-    wrap_str customstr versiondes remark
+    wrap_str customstr versiondes remark file_path file_link
 
-    [[ -n "$zip_file" && ! -f "$zip_file" ]] && die "[$zip_file] not found."
 
     #Prevent errors in multi-line text
     customstr="${customstr//
@@ -699,7 +752,7 @@ function v2_newres()
 
     read -d '' PYSCRIPT <<EOF
 $PYSCRIPT_GC_INIT
-gc.NewRes($productid, "$app_version", "$res_version", filepath="$zip_file",link="$zip_file_link" $customstr $versiondes $remark )
+gc.NewRes($productid, "$app_version", "$res_version" $file_path $file_link $customstr $versiondes $remark )
 
 EOF
     python -c "$PYSCRIPT"

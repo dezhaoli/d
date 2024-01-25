@@ -74,9 +74,9 @@ class GCAPI():
             #         raise Exception("version not found in channel: version[%s] channel[%s]" % (src_app_ver, src_productid))
             #         pass
             #     version_info = his["VersionInfo"]
-            # self.NewApp(des_productid, des_app_ver, link=src_app_item['PackageUrl'],md5=src_app_item["VersionMd5"], customstr=src_app_item["VersionCustomStr"],versiondes=src_app_item["VersionDes"], diff_list=diff_versions ,version_info=version_info)
+            # self.NewApp(des_productid, des_app_ver, file_link=src_app_item['PackageUrl'],md5=src_app_item["VersionMd5"], customstr=src_app_item["VersionCustomStr"],versiondes=src_app_item["VersionDes"], diff_list=diff_versions ,version_info=version_info)
 
-            self.NewApp(des_productid, des_app_ver, link=src_app_item['PackageUrl'], customstr=src_app_item['CustomStr'],versiondes=src_app_item['Description'],remark=src_app_item['Remark'])
+            self.NewApp(des_productid, des_app_ver, file_link=src_app_item['PackageUrl'], customstr=src_app_item['CustomStr'],versiondes=src_app_item['Description'],remark=src_app_item['Remark'])
 
         if src_res_ver:
             if self.IsVersionExist(des_productid,"res",des_app_ver, des_res_ver):
@@ -84,9 +84,9 @@ class GCAPI():
             # his = self.GetUploadHistory(src_productid, src_res_ver)
             # version_info = his["VersionInfo"]
 
-            # self.NewRes(des_productid, des_app_ver, des_res_ver, link=src_res_item['PackageUrl'],md5=src_res_item["VersionMd5"], customstr=src_res_item["VersionCustomStr"],versiondes=src_res_item["VersionDes"] ,version_info=version_info)
+            # self.NewRes(des_productid, des_app_ver, des_res_ver, file_link=src_res_item['PackageUrl'],md5=src_res_item["VersionMd5"], customstr=src_res_item["VersionCustomStr"],versiondes=src_res_item["VersionDes"] ,version_info=version_info)
 
-            self.NewRes(des_productid, des_app_ver, des_res_ver, link=src_res_item['PackageUrl'], customstr=src_res_item["CustomStr"],versiondes=src_res_item['Description'] ,remark=src_app_item['Remark'])
+            self.NewRes(des_productid, des_app_ver, des_res_ver, file_link=src_res_item['PackageUrl'], customstr=src_res_item["CustomStr"],versiondes=src_res_item['Description'] ,remark=src_app_item['Remark'])
 
 
     #kind:[both|app|res]
@@ -149,19 +149,22 @@ class GCAPI():
     @classmethod
     def GetDiffVersions(self, productid, pre_num=1, publish_num=2):
         diff_list = []
-        result = self.GetAllVersion(productid, 0)
-        for item in result.get('result'):
-            if len(diff_list) >= pre_num: break
-            if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
-                app_version = item.get('VersionStr')
-                diff_list.append(app_version)
-        result = self.GetAllVersion(productid, 2)
-        for item in result.get('result'):
-            if len(diff_list) >= pre_num + publish_num: break
-            if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
-                app_version = item.get('VersionStr')
-                if app_version not in diff_list:
+
+        if pre_num > 0:
+            result = self.GetAllVersion(productid, 0)
+            for item in result.get('result'):
+                if len(diff_list) >= pre_num: break
+                if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
+                    app_version = item.get('VersionStr')
                     diff_list.append(app_version)
+        if publish_num > 0:
+            result = self.GetAllVersion(productid, 2)
+            for item in result.get('result'):
+                if len(diff_list) >= pre_num + publish_num: break
+                if item.get('PackageMd5') and int(item.get('PackageSize')) > 0:
+                    app_version = item.get('VersionStr')
+                    if app_version not in diff_list:
+                        diff_list.append(app_version)
         if len(diff_list) == 0: return None
         return diff_list
 
@@ -350,6 +353,25 @@ class GCAPI():
 
 
     @classmethod
+    def NewUploadAppAttachmentTask(self, productid, app_version, diff_list=None, category=0):
+        params = [
+            ("Uin", uin),
+            ("ProductID", productid),
+            ("VersionStr", app_version),
+            ("Category", category),
+        ]
+
+        # if diff_list and len(diff_list) > 0:
+        #     params.append(('DiffFrom', '|'.join(diff_list)))
+
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "NewUploadAppAttachmentTask",
+            params=params, debug=verbose_openapi)
+        if verbose : print ("upload app attachment task created...")
+        print json.dumps(result)
+        return result["result"]
+
+    @classmethod
     def NewUploadAppTask(self, productid, app_version, diff_list=None, category=0):
         params = [
             ("Uin", uin),
@@ -364,7 +386,7 @@ class GCAPI():
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
             accessid, accesskey, "update", "NewUploadAppTask",
             params=params, debug=verbose_openapi)
-        if verbose : print ("upload task created...")
+        if verbose : print ("upload app task created...")
         print json.dumps(result)
         return result["result"]
 
@@ -383,7 +405,7 @@ class GCAPI():
         result = gcloud_openapi.request_gcloud_api(host4common, gameid,
             accessid, accesskey, "update", "NewUploadResTask",
             params=params, debug=verbose_openapi)
-        if verbose : print ("upload task created...")
+        if verbose : print ("upload res task created...")
         print json.dumps(result)
         return result["result"]
 
@@ -393,7 +415,7 @@ class GCAPI():
     # versiondes:       版本描述
     # customstr:        自定义字符串
     @classmethod
-    def NewApp(self, productid, app_version, filepath=None, link=None, md5=None, category=0, gray_rule_id=None, customstr=None, versiondes=None, remark=None, diff_list=None, version_info=None):
+    def NewApp(self, productid, app_version, file_path=None, file_link=None, md5=None, category=0, gray_rule_id=None, customstr=None, versiondes=None, remark=None, diff_list=None, version_info=None):
         if not version_info:
             # center/NewUploadTask
             result = self.NewUploadAppTask(productid, app_version, diff_list=diff_list)
@@ -402,7 +424,7 @@ class GCAPI():
             UploadTaskID = result["UploadTaskID"]
 
             # file/UploadUpdateFile
-            self.UploadUpdateFile(UploadTaskID,TaskInfo,filepath=filepath,link=link,md5=md5)
+            self.UploadUpdateFile(UploadTaskID,TaskInfo,file_path=file_path,file_link=file_link,md5=md5)
 
             # center/GetUploadTaskStat
             version_info = self.GetUploadTaskStat(UploadTaskID)
@@ -444,9 +466,65 @@ class GCAPI():
 
         if verbose : print ("NewApp done!")
 
+    # maybe not need: gray_rule_id=None, customstr=None, versiondes=None, remark=None, diff_list=None
+    @classmethod
+    def NewAppAttachment(self, productid, app_version, file_path=None, file_link=None, md5=None, category=0, gray_rule_id=None, customstr=None, versiondes=None, remark=None, diff_list=None, version_info=None):
+        if not version_info:
+            # update/NewUploadAppAttachmentTask
+            result = self.NewUploadAppAttachmentTask(productid, app_version)
+
+            TaskInfo = result["TaskInfo"]
+            UploadTaskID = result["UploadTaskID"]
+
+            # file/UploadUpdateFile
+            self.UploadUpdateFile(UploadTaskID,TaskInfo,file_path=file_path,file_link=file_link,md5=md5)
+
+            # center/GetUploadTaskStat
+            version_info = self.GetUploadTaskStat(UploadTaskID)
+
+
+
+        # update/NewUploadAppAttachmentTask
+        params=[
+            ("Uin", uin),
+            ("ProductID", productid),
+            ("VersionStr", app_version),
+            ("VersionInfo", version_info),
+            ("Category", category),
+            ("UpgradeType", 2),
+            ("EnableP2P", 1),
+        ]
+        # if category == 1:
+        #     params.append(("GrayRuleID", gray_rule_id))
+
+        # if diff_list and len(diff_list) > 0:
+        #     params.append(('DiffFrom', '|'.join(diff_list)))
+
+        # if customstr :
+        #     params.append(("CustomStr", customstr))
+        # if versiondes :
+        #     params.append(("Description", versiondes))
+        # if remark :
+        #     params.append(("Remark", remark))
+            
+        # params.append(("EnableP2P", 1))
+
+        result = gcloud_openapi.request_gcloud_api(host4common, gameid,
+            accessid, accesskey, "update", "NewAppAttachment",
+            params=params, debug=verbose_openapi)
+        if verbose : print ("new app attachment succeeded...")
+
+        # pre-publish
+        self.PrePublish(productid)
+        # publish
+        # self.Publish(productid)
+
+        if verbose : print ("NewAppAttachment done!")
+
+
     
     @classmethod
-    def NewRes(self, productid, app_version, res_version, filepath=None, link=None, md5=None, customstr=None, versiondes=None, remark=None, version_info=None):
+    def NewRes(self, productid, app_version, res_version, file_path=None, file_link=None, md5=None, customstr=None, versiondes=None, remark=None, version_info=None):
         if not version_info:
             # center/NewUploadTask
             result = self.NewUploadResTask(productid, app_version, res_version, 1)
@@ -455,7 +533,7 @@ class GCAPI():
             UploadTaskID = result["UploadTaskID"]
 
             # file/UploadUpdateFile
-            self.UploadUpdateFile(UploadTaskID,TaskInfo,filepath=filepath,link=link,md5=md5)
+            self.UploadUpdateFile(UploadTaskID,TaskInfo,file_path=file_path,file_link=file_link,md5=md5)
 
             # center/GetUploadTaskStat
             version_info = self.GetUploadTaskStat(UploadTaskID)
@@ -673,7 +751,7 @@ class GCAPI():
         return result
 
     @classmethod
-    def PrePublish(self, productid):
+    def PrePublish(self, productid, is_puffer=False):
         params = [
             ("Uin", uin),
             ("ProductID", productid),
@@ -715,26 +793,27 @@ class GCAPI():
             time.sleep(1)
         if verbose : print ("upload task finished")
         assert version_info,'error: Failed to get version info form GetUploadTaskStat with task id [%s].'%(upload_task_id)
+        print( "version_info: [" + version_info + "]")
         return version_info
 
 
-    # filepath      本地待上传文件，与link互斥，UploadUpdateFile
-    # link          文件下载链接,UploadUpdateFileWithLink
+    # file_path      本地待上传文件，与file_link互斥，UploadUpdateFile
+    # file_link          文件下载链接,UploadUpdateFileWithLink
     @classmethod
-    def UploadUpdateFile(self, uploadtaskid, taskinfo, filepath=None, link=None, md5=None):
+    def UploadUpdateFile(self, uploadtaskid, taskinfo, file_path=None, file_link=None, md5=None):
         # file/UploadUpdateFile
         params = [
             ('UploadTaskID', uploadtaskid),
             ("TaskInfo", taskinfo)
         ]
-        if link:
-            params.append(("Link", link))
+        if file_link:
+            params.append(("Link", file_link))
             result = gcloud_openapi.request_gcloud_api(host4file, gameid,
                 accessid, accesskey, "file", "UploadUpdateFileWithLink",
                 params=params, file=None, debug=verbose_openapi)
-        elif filepath:
-            filename = os.path.basename(filepath)
-            file = open(filepath, "rb")
+        elif file_path:
+            filename = os.path.basename(file_path)
+            file = open(file_path, "rb")
             result = gcloud_openapi.request_gcloud_api(host4file, gameid,
                 accessid, accesskey, "file", "UploadUpdateFile",
                 params=params, file=(filename, file), debug=verbose_openapi)

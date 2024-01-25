@@ -79,6 +79,7 @@ def request_gcloud_api(host, gameid, accessid, accesskey, module, action, params
         ("ts", int(time.time())),
         ("nonce", random.randint(0, 0x7FFFFFFF)),
         ("accessid", accessid),
+        ("Test", 1), #temp for test so upload
     ]
     
     if params:
