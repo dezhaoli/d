@@ -19,11 +19,6 @@ def parse_domain(hostname):
         yield domain
         yield '.' + domain
 
-def decrypt(encrypt_string, cookies_erncrypt_key):
-    encrypt_string = encrypt_string[3:]
-    cipher = AES.new(cookies_erncrypt_key , AES.MODE_CBC, IV=b' ' * 16)
-    decrypted_string = cipher.decrypt(encrypt_string)
-    return decrypted_string.rstrip().decode('utf8')
     
 def fetch_cookies(hostname, isChrome=True):
     if not (sys.platform == 'darwin'):
@@ -48,27 +43,17 @@ def fetch_cookies(hostname, isChrome=True):
     cookie_file_path = str(os.path.expanduser(cookies_filepath))
 
     with sqlite3.connect(cookie_file_path) as conn:
-        secure_column_name = 'is_secure'
-        for column_names in conn.execute('PRAGMA table_info(cookies)'):
-            if column_names[1] == 'secure':
-                secure_column_name = 'secure'
-                break
-            elif column_names[1] == 'is_secure':
-                break
-        
-        sql_str = ('select host_key, path, ' + secure_column_name +
-                   ', expires_utc, name, value, encrypted_value '
-                   'from cookies where host_key like ?')
         cookies = dict()
 
-        for host_key in parse_domain(hostname):
-            for hk, path, is_secure, expires_utc, cookie_key, val, enc_val \
-                in conn.execute(sql_str, (host_key,)):
-                if val or (enc_val[:3] not in (b'v10', b'v11')):
+        for domain in parse_domain(hostname):
+            for name, value, encrypted_value in conn.execute("SELECT name, value, encrypted_value FROM cookies WHERE host_key LIKE ?", (domain,)) :
+                if value or (encrypted_value[:3] not in (b'v10', b'v11')):
                     pass
                 else:
-                    val = decrypt(enc_val, cookies_erncrypt_key)
-                cookies[cookie_key] = val
+                    cipher = AES.new(cookies_erncrypt_key , AES.MODE_CBC, IV=b' ' * 16)
+                    decrypted_value = cipher.decrypt(encrypted_value[3:])
+                    value = decrypted_value[32:].rstrip().decode('utf8')
+                cookies[name] = value
 
     return cookies
             
