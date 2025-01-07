@@ -5,7 +5,7 @@ import os
 import sqlite3
 from urlparse import urlparse
 from Crypto.Cipher import AES
-
+import binascii
 
 def parse_domain(hostname):
     parsed_url = urlparse(hostname)
@@ -41,12 +41,15 @@ def fetch_cookies(hostname, isChrome=True):
 
 
     cookie_file_path = str(os.path.expanduser(cookies_filepath))
-
+    print(cookie_file_path)
+    print(hostname)
     with sqlite3.connect(cookie_file_path) as conn:
         cookies = dict()
 
         for domain in parse_domain(hostname):
-            for name, value, encrypted_value in conn.execute("SELECT name, value, encrypted_value FROM cookies WHERE host_key LIKE ?", (domain,)) :
+            print(domain)
+            for name, value, encrypted_value_hex in conn.execute("SELECT name, value, HEX(encrypted_value) FROM cookies WHERE host_key LIKE ?", (domain,)) :
+                encrypted_value = binascii.unhexlify(encrypted_value_hex)
                 if value or (encrypted_value[:3] not in (b'v10', b'v11')):
                     pass
                 else:
