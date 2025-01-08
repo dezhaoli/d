@@ -124,7 +124,7 @@ function get-artifactory-list()
   
     local api_url="http://devops.apigw.o.oa.com/${l_env_type}/v2/apigw-user/artifactories/projects/${l_project_id}"
     api_url="${api_url}/pipelines/${pipelineId}/builds/${buildId}/search"
-    local result=$(curl -s -i -X GET ""                         \
+    local result=$(curl -s -i -X GET                            \
                         -H "Accept:application/json"            \
                         -H "Content-Type:application/json"      \
                         "$api_url?access_token=${l_access_token}" | sed '1,16d')
@@ -142,7 +142,7 @@ function get-download-url()
 
     local api_url="http://devops.apigw.o.oa.com/${l_env_type}/v2/apigw-user/artifactories/projects/${l_project_id}"
     api_url="${api_url}/thirdPartyDownloadUrl"
-    local result=$(curl -s -i -X GET ""                         \
+    local result=$(curl -s -i -X GET                            \
                         -H "Accept:application/json"            \
                         -H "Content-Type:application/json"      \
                         "$api_url?path=${path}&amp;artifactoryType=${l_artifactory_type}&amp;access_token=${l_access_token}" )
