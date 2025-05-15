@@ -14,7 +14,7 @@ function find-references-in-project()
 {
 	local project_dir=""					#@
 	local asset_paths=()					#@ nargs=+; help='e.g. assets/xxx/x.prefab'
-	local onlyins=()						#@ --onlyin; action='append' ; help='default search in project_dir/Assets/'
+	local onlyins=( Assets )				#@ --onlyin; action='append' ; help='default search in project_dir/Assets/'
 	local is_direct=false 					#@ --direct-only; action=store_true;
 	____ "$@"
 
@@ -26,8 +26,8 @@ function find-references-in-project()
 		[[ -f "$a" ]] || die "Asset not found: asset=[$a]"
 	done
 
-	local search_dirs=""
-	(( ${#onlyins} > 0 )) && search_dirs=$(printf " -onlyin $project_dir/"'%s' "${onlyins[@]}") || search_dirs="-onlyin $project_dir/Assets"
+	(( ${#onlyins} > 0 )) || die "onlyins is empty"
+	local search_dirs=$(printf " -onlyin $project_dir/"'%s' "${onlyins[@]}")
 
 
 	_findref(){
@@ -57,5 +57,39 @@ function find-references-in-project()
 
 }
 
+
+#@
+function find-cginc-ref()
+{
+	local project_dir=""			#@
+	local path=""					#@ help='e.g. "Assets/effect.cginc"'
+	____ "$@"
+
+	declare -A counter
+	_findcgincref()
+	{
+		local s="$(realpath "$1")" || return
+		[[ -f "$s" ]] || return
+		[[ ${counter["$s"]} == "1" ]] && return
+		echo "$s"
+		counter["$s"]=1
+		local basedir="$(dirname "$s")"
+		while read ref_cginc ;do 
+			eval ref_cginc="$ref_cginc"
+			if [[ "$ref_cginc" == UnityCG.cginc ]]; then
+				continue
+			elif [[ "$ref_cginc" =~ Packages/.* ]]; then
+				ref_cginc="${ref_cginc//Packages\//}"
+				ref_cginc=$(mdfind -onlyin "$project_dir/../Program/Bundle/Shared/Packages/" "kMDItemDisplayName = '$(basename $ref_cginc)'c" | grep $(dirname "$ref_cginc"))
+			elif [[ "$ref_cginc" =~ Assets/.* ]]; then
+				ref_cginc="$project_dir/$ref_cginc"
+			else
+				ref_cginc="$basedir/$ref_cginc"
+			fi
+			_findcgincref "$ref_cginc"
+		done < <(grep '#include ' $s |grep -o '".*"' |sort -u )
+	}
+	_findcgincref "$path"
+}
 
 main "$@"
